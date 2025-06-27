@@ -28,22 +28,21 @@
             <div class="text-xs font-bold text-[#aaa] tracking-widest mb-2 pl-1">VOLUME</div>
             <div class="flex items-center w-full">
               <span class="text-xs text-[#888] w-10 text-right mr-2">0</span>
-              <input type="range" id="volume" min="0" max="100" value="50" step="1" class="unity-slider" style="flex:1">
+              <input type="range" id="volume" min="0" max="100" value="100" step="1" class="unity-slider" style="flex:1">
               <span class="text-xs text-[#888] w-10 text-left ml-2">100</span>
             </div>
             <div class="flex justify-between w-full mt-1">
               <span class="text-xs text-[#7fffd4] font-mono">音量</span>
-              <span id="volumeValue" class="text-xs text-[#7fffd4] font-mono">50%</span>
+              <span id="volumeValue" class="text-xs text-[#7fffd4] font-mono">100%</span>
             </div>
           </div>
-          <!-- 重複していたEFFECTS/LPF Cutoffブロックを削除 -->
           <div class="w-full mb-8">
             <div class="text-xs font-bold text-[#aaa] tracking-widest mb-2 pl-1">EFFECTS</div>
             <div class="mt-2">
-                <input type="range" id="lpf" min="500" max="10000" value="5000" step="100" class="unity-slider w-full">
+                <input type="range" id="lpf" min="500" max="10000" value="1500" step="100" class="unity-slider w-full">
                 <div class="flex justify-between w-full mt-1">
                     <span class="text-xs text-amber-300 font-mono">LPF Cutoff</span>
-                    <span id="lpfValue" class="text-xs text-amber-300 font-mono">5000 Hz</span>
+                    <span id="lpfValue" class="text-xs text-amber-300 font-mono">1500 Hz</span>
                 </div>
             </div>
             <div class="mt-4 flex items-center justify-between">

@@ -6,9 +6,9 @@ const MAX_SPEED = 120; // km/h
 const MAX_FREQ = 120; // Hz
 const DECEL_RATE_COAST = 0.3; // Hz per second (natural deceleration)
 const DECEL_RATE_BRAKE = 0.8; // Hz per second per notch (B1~B6)
-const DECEL_RATE_B7 = 4.2; // km/h/s (B7)
+const DECEL_RATE_B7 = 3.5; // km/h/s (B7)
 const DECEL_RATE_EB = 4.5; // km/h/s (EB)
-const ACCEL_RATE_P4 = 3; // km/h/s (加速度, P4時)
+const ACCEL_RATE_P4 = 2.8; // km/h/s (加速度, P4時)
 
 // --- 変調パターン定義 ---
 const MODULATION_PATTERNS = {
@@ -52,8 +52,8 @@ const state = {
   handlePosition: 0, // -8 (EB) to 4 (P4)
   currentSpeed: 0,
   isSimulating: false,
-  volume: 0.5,
-  lpfCutoff: 5000,
+  volume: 1,
+  lpfCutoff: 1500,
   reverbEnabled: false,
 };
 
@@ -333,7 +333,7 @@ async function setupAudio() {
 
   // Load impulse response
   try {
-    const response = await fetch("ir/tunnel.mp3");
+    const response = await fetch("ir/emt_140_bright_1.wav");
     const arrayBuffer = await response.arrayBuffer();
     const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
     convolverNode.buffer = audioBuffer;
@@ -373,9 +373,10 @@ function updateAudio() {
   let modulationPatterns;
   if (state.handlePosition < 0) {
     // 減速時は現在の周波数に応じたパターン1つだけを送る
-    let freqToSend = state.currentSpeed > 0 && state.handlePosition !== 0
-      ? (state.currentSpeed / MAX_SPEED) * MAX_FREQ
-      : 0;
+    let freqToSend =
+      state.currentSpeed > 0 && state.handlePosition !== 0
+        ? (state.currentSpeed / MAX_SPEED) * MAX_FREQ
+        : 0;
     // Hzスケールでパターンを選択
     let pattern = null;
     for (const p of MODULATION_PATTERNS.decel) {
@@ -507,13 +508,16 @@ window.addEventListener("DOMContentLoaded", () => {
   const resetButton = document.getElementById("resetButton");
   if (resetButton) {
     resetButton.addEventListener("click", function () {
-      if (volumeSlider) volumeSlider.value = 50;
-      if (ui.lpf) ui.lpf.value = 5000;
-      if (ui.reverb) ui.reverb.checked = false;
-      // ...
-      state.volume = 0.5;
-      state.lpfCutoff = 5000;
-      state.reverbEnabled = false;
+      if (volumeSlider) volumeSlider.value = 100;
+      if (ui.lpf) ui.lpf.value = 1500;
+      if (ui.reverb) ui.reverb.checked = true;
+      // 状態もリセット
+      state.handlePosition = 0;
+      state.currentSpeed = 0;
+      state.isSimulating = true;
+      state.volume = 1;
+      state.lpfCutoff = 1500;
+      state.reverbEnabled = true;
       if (typeof render === "function") render(state);
       updateAudioConnections();
       updateAudio();
@@ -524,8 +528,8 @@ window.addEventListener("DOMContentLoaded", () => {
     state.isSimulating = true;
     state.handlePosition = 0;
     state.currentSpeed = 0;
-    state.volume = 0.5;
-    state.lpfCutoff = 5000;
+    state.volume = 1;
+    state.lpfCutoff = 1500;
     state.reverbEnabled = true;
     if (ui.reverb) ui.reverb.checked = true;
     render(state);
