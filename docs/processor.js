@@ -185,7 +185,7 @@ class PwmProcessor extends AudioWorkletProcessor {
       const pwmV = signalV > carrierWave ? 1 : -1;
       const pwmW = signalW > carrierWave ? 1 : -1;
 
-      const currentI1 = (2 * pwmU - pwmV - pwmW) / (3 * this.R);
+      const currentI1 = (pwmU - pwmV) / 2; // Normalize to -1.0 to 1.0
       outputChannel[i] = currentI1 * 0.1;
     }
     this.signalPhase = signalPhase;
@@ -256,7 +256,7 @@ class PwmProcessor extends AudioWorkletProcessor {
       const pwmU = signalU > carrierWave ? 1 : -1;
       const pwmV = signalV > carrierWave ? 1 : -1;
       const pwmW = signalW > carrierWave ? 1 : -1;
-      const currentI1 = (2 * pwmU - pwmV - pwmW) / (3 * this.R);
+      const currentI1 = (pwmU - pwmV) / 2; // Normalize to -1.0 to 1.0
 
       this.port.postMessage({
         type: "waveform",
