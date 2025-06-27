@@ -35,7 +35,7 @@ class PwmProcessor extends AudioWorkletProcessor {
       }
     };
 
-    this.port.postMessage({ type: 'ready' });
+    this.port.postMessage({ type: "ready" });
   }
 
   _getModulationPattern(signalFreq) {
@@ -82,8 +82,11 @@ class PwmProcessor extends AudioWorkletProcessor {
       let carrierWave;
 
       if (pattern.type === "async") {
-        const carrierIncrement =
-          (2 * Math.PI * pattern.carrierFreq) / sampleRate;
+        // async: carrierFreq is relative to signalFreq
+        const carrierFreq = pattern.carrierFreqRatio
+          ? currentSignalFreq * pattern.carrierFreqRatio
+          : pattern.carrierFreq;
+        const carrierIncrement = (2 * Math.PI * carrierFreq) / sampleRate;
         this.asyncCarrierPhase += carrierIncrement;
         if (this.asyncCarrierPhase > 2 * Math.PI) {
           this.asyncCarrierPhase -= 2 * Math.PI;
@@ -94,12 +97,22 @@ class PwmProcessor extends AudioWorkletProcessor {
         // 'sync'
         let pulse = pattern.pulse;
         if (pulse === "wide_3") {
-          // For now, treat wide_3 as a normal 3-pulse
-          // TODO: Implement specific wide-range 3-pulse logic
-          pulse = 3;
+          // wide_3: wide-range 3-pulse carrier
+          const basePhase = this.signalPhase % (2 * Math.PI);
+          let shift = 0;
+          if (basePhase < (2 * Math.PI) / 3) {
+            shift = 0;
+          } else if (basePhase < (4 * Math.PI) / 3) {
+            shift = Math.PI;
+          } else {
+            shift = 0;
+          }
+          const carrierPhase = (this.signalPhase * 3 + shift) % (2 * Math.PI);
+          carrierWave = (2 / Math.PI) * Math.asin(Math.sin(carrierPhase));
+        } else {
+          const carrierPhase = (this.signalPhase * pulse) % (2 * Math.PI);
+          carrierWave = (2 / Math.PI) * Math.asin(Math.sin(carrierPhase));
         }
-        const carrierPhase = (this.signalPhase * pulse) % (2 * Math.PI);
-        carrierWave = (2 / Math.PI) * Math.asin(Math.sin(carrierPhase));
       }
 
       const signalU = Math.sin(this.signalPhase);
@@ -143,16 +156,33 @@ class PwmProcessor extends AudioWorkletProcessor {
       const pattern = this._getModulationPattern(currentSignalFreq);
       let carrierWave;
       if (pattern.type === "async") {
-        const carrierIncrement =
-          (2 * Math.PI * pattern.carrierFreq) / sampleRate;
+        const carrierFreq = pattern.carrierFreqRatio
+          ? currentSignalFreq * pattern.carrierFreqRatio
+          : pattern.carrierFreq;
+        const carrierIncrement = (2 * Math.PI * carrierFreq) / sampleRate;
         const lastAsyncCarrierPhase =
           this.asyncCarrierPhase + carrierIncrement * lastSampleIndex;
         carrierWave =
           (2 / Math.PI) * Math.asin(Math.sin(lastAsyncCarrierPhase));
       } else {
-        let pulse = pattern.pulse === "wide_3" ? 3 : pattern.pulse;
-        const lastCarrierPhase = (lastSignalPhase * pulse) % (2 * Math.PI);
-        carrierWave = (2 / Math.PI) * Math.asin(Math.sin(lastCarrierPhase));
+        let pulse = pattern.pulse;
+        if (pulse === "wide_3") {
+          const basePhase = lastSignalPhase % (2 * Math.PI);
+          let shift = 0;
+          if (basePhase < (2 * Math.PI) / 3) {
+            shift = 0;
+          } else if (basePhase < (4 * Math.PI) / 3) {
+            shift = Math.PI;
+          } else {
+            shift = 0;
+          }
+          const lastCarrierPhase =
+            (lastSignalPhase * 3 + shift) % (2 * Math.PI);
+          carrierWave = (2 / Math.PI) * Math.asin(Math.sin(lastCarrierPhase));
+        } else {
+          const lastCarrierPhase = (lastSignalPhase * pulse) % (2 * Math.PI);
+          carrierWave = (2 / Math.PI) * Math.asin(Math.sin(lastCarrierPhase));
+        }
       }
 
       const signalU = Math.sin(lastSignalPhase);
