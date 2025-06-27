@@ -1,0 +1,15 @@
+body {
+    font-family: 'Inter', 'Noto Sans JP', sans-serif;
+}
+
+#handle-container {
+    box-shadow: inset 0 2px 8px rgba(0,0,0,0.6);
+}
+
+#handle-indicator {
+    transform: translateY(221px); /* Start at Neutral */
+}
+
+#speedometer {
+    text-shadow: 0 0 15px rgba(107, 229, 255, 0.5);
+}

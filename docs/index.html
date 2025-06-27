@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VVVFサウンドシミュレータ (ワンハンドル版)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="bg-gray-900 text-white flex items-center justify-center min-h-screen font-sans">
+
+    <div class="w-full max-w-2xl p-8 bg-gray-800 rounded-2xl shadow-2xl border border-gray-700">
+        
+        <div class="text-center mb-6">
+            <h1 class="text-3xl font-bold text-blue-400">VVVFサウンドシミュレータ</h1>
+            <p class="text-gray-400 mt-2">ワンハンドルコントローラ版</p>
+        </div>
+
+        <div class="grid grid-cols-3 gap-8 items-center">
+            <!-- Speedometer -->
+            <div class="col-span-1 flex flex-col items-center justify-center bg-gray-900 p-6 rounded-lg border border-gray-700">
+                <div id="speedometer" class="text-6xl font-mono font-bold text-cyan-400">0</div>
+                <div class="text-lg text-gray-400">km/h</div>
+            </div>
+
+            <!-- One-Handle Controller -->
+            <div class="col-span-2 flex items-center justify-center space-x-4">
+                <div id="handle-container" class="relative w-24 h-96 bg-gray-900 rounded-lg border-2 border-gray-700 flex flex-col">
+                    <!-- Notches -->
+                    <div id="all-notches" class="flex-1 flex flex-col"></div>
+                    <!-- Handle Indicator -->
+                    <div id="handle-indicator" class="absolute w-full h-8 bg-blue-500/50 border-2 border-blue-400 rounded-md transition-transform duration-100 ease-out"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-6">
+            <canvas id="waveformCanvas" class="w-full h-48 bg-gray-900 rounded-lg border border-gray-700"></canvas>
+            <div class="flex items-center justify-center space-x-4 text-sm text-gray-400 mt-2">
+              <div class="flex items-center"><span class="w-3 h-3 rounded-full bg-blue-500 mr-2"></span>U相</div>
+              <div class="flex items-center"><span class="w-3 h-3 rounded-full bg-green-500 mr-2"></span>V相</div>
+              <div class="flex items-center"><span class="w-3 h-3 rounded-full bg-yellow-500 mr-2"></span>W相</div>
+              <div class="flex items-center"><span class="w-3 h-3 rounded-full bg-red-500 mr-2"></span>I1 電流</div>
+              <div class="flex items-center"><span class="w-3 h-0.5 rounded-full bg-gray-500 mr-2"></span>搬送波</div>
+            </div>
+        </div>
+        
+        <div class="mt-6 space-y-4">
+             <div>
+                <label for="carrierFreq" class="block mb-2 text-sm font-medium text-gray-300">搬送波 周波数 (Carrier Freq.)</label>
+                <div class="flex items-center space-x-4">
+                    <input type="range" id="carrierFreq" min="50" max="10000" value="2000" step="10" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                    <span id="carrierFreqValue" class="font-mono text-blue-400 w-24 text-center">2000 Hz</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-8 text-center">
+            <button id="startButton" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:ring-4 focus:ring-blue-800 transition-all duration-300 shadow-lg">
+                シミュレーション開始
+            </button>
+            <p class="text-gray-500 text-sm mt-4">キーボードショートカット: [Z] マスコン進段, [Q] ブレーキ進段, [A] 惰行 (N), [1] 非常ブレーキ (EB)</p>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
