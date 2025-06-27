@@ -59,42 +59,134 @@ function render(state) {
   }
   if (!konvaObjects.stage) {
     // ... (Konvaの初���化は変更なし) ...
-    const width = 800, height = 450;
-    konvaObjects.stage = new Konva.Stage({ container: "konva-stage-container", width, height });
+    const width = 800,
+      height = 450;
+    konvaObjects.stage = new Konva.Stage({
+      container: "konva-stage-container",
+      width,
+      height,
+    });
     konvaObjects.layer = new Konva.Layer();
     konvaObjects.stage.add(konvaObjects.layer);
     konvaObjects.notchRects = [];
     konvaObjects.notchLabels = [];
-    const notchLabels = ["EB", "B7", "B6", "B5", "B4", "B3", "B2", "B1", "N", "P1", "P2", "P3", "P4"];
+    const notchLabels = [
+      "EB",
+      "B7",
+      "B6",
+      "B5",
+      "B4",
+      "B3",
+      "B2",
+      "B1",
+      "N",
+      "P1",
+      "P2",
+      "P3",
+      "P4",
+    ];
     for (let i = 0; i < notchLabels.length; i++) {
       const y = 40 + i * 30;
-      let width = 45, height = 22, x = 70;
-      if (i === 0 || i === 8) { width = 60; x = 62; }
-      const rect = new Konva.Rect({ x, y, width, height, fill: "#222", cornerRadius: 0, strokeWidth: 0 });
+      let width = 45,
+        height = 22,
+        x = 70;
+      if (i === 0 || i === 8) {
+        width = 60;
+        x = 62;
+      }
+      const rect = new Konva.Rect({
+        x,
+        y,
+        width,
+        height,
+        fill: "#222",
+        cornerRadius: 0,
+        strokeWidth: 0,
+      });
       konvaObjects.layer.add(rect);
       konvaObjects.notchRects.push(rect);
-      const label = new Konva.Text({ x, y: y + 2, width, height, text: notchLabels[i], fontSize: 15, fontStyle: "bold", align: "center", verticalAlign: "middle", fill: "#111" });
+      const label = new Konva.Text({
+        x,
+        y: y + 2,
+        width,
+        height,
+        text: notchLabels[i],
+        fontSize: 15,
+        fontStyle: "bold",
+        align: "center",
+        verticalAlign: "middle",
+        fill: "#111",
+      });
       konvaObjects.layer.add(label);
       konvaObjects.notchLabels.push(label);
     }
-    konvaObjects.speedValue = new Konva.Text({ x: 400, y: 20, width: 180, height: 60, text: "0", fontSize: 56, fontFamily: "monospace", fontStyle: "bold", fill: "#22d3ee", align: "center", verticalAlign: "middle" });
+    konvaObjects.speedValue = new Konva.Text({
+      x: 400,
+      y: 20,
+      width: 180,
+      height: 60,
+      text: "0",
+      fontSize: 56,
+      fontFamily: "monospace",
+      fontStyle: "bold",
+      fill: "#22d3ee",
+      align: "center",
+      verticalAlign: "middle",
+    });
     konvaObjects.layer.add(konvaObjects.speedValue);
-    konvaObjects.kmhLabel = new Konva.Text({ x: 400, y: 80, width: 180, height: 30, text: "km/h", fontSize: 22, fill: "#aaa", align: "center", verticalAlign: "middle" });
+    konvaObjects.kmhLabel = new Konva.Text({
+      x: 400,
+      y: 80,
+      width: 180,
+      height: 30,
+      text: "km/h",
+      fontSize: 22,
+      fill: "#aaa",
+      align: "center",
+      verticalAlign: "middle",
+    });
     konvaObjects.layer.add(konvaObjects.kmhLabel);
     window.addEventListener("keydown", (e) => {
       if (!state.isSimulating) return;
       let changed = false;
       switch (e.key.toUpperCase()) {
-        case "Z": if (state.handlePosition < 4) { state.handlePosition++; changed = true; } break;
-        case "Q": if (state.handlePosition > -7) { state.handlePosition--; changed = true; } break;
-        case "A": if (state.handlePosition > 0) { state.handlePosition--; changed = true; } else if (state.handlePosition < 0) { state.handlePosition++; changed = true; } break;
-        case "1": if (state.handlePosition !== -8) { state.handlePosition = -8; changed = true; } break;
+        case "Z":
+          if (state.handlePosition < 4) {
+            state.handlePosition++;
+            changed = true;
+          }
+          break;
+        case "Q":
+          if (state.handlePosition > -7) {
+            state.handlePosition--;
+            changed = true;
+          }
+          break;
+        case "A":
+          if (state.handlePosition > 0) {
+            state.handlePosition--;
+            changed = true;
+          } else if (state.handlePosition < 0) {
+            state.handlePosition++;
+            changed = true;
+          }
+          break;
+        case "1":
+          if (state.handlePosition !== -8) {
+            state.handlePosition = -8;
+            changed = true;
+          }
+          break;
       }
       if (changed) {
         render(state);
         updateAudio();
-        if (audioCtx && audioCtx.state === "suspended") { audioCtx.resume(); }
-        if (!simulationLoopStarted && state.isSimulating) { startSimulationLoop(); }
+        if (audioCtx && audioCtx.state === "suspended") {
+          audioCtx.resume();
+        }
+        if (!simulationLoopStarted && state.isSimulating) {
+          startSimulationLoop();
+        }
       }
     });
   }
@@ -104,9 +196,19 @@ function render(state) {
     let labelColor = "#111";
     if (state.handlePosition === -8 && i === 0) fill = "#ef4444";
     else if (state.handlePosition === -8 && i > 0 && i <= 7) fill = "#facc15";
-    else if (state.handlePosition < 0 && i >= 8 - Math.abs(state.handlePosition) && i <= 7) fill = "#facc15";
+    else if (
+      state.handlePosition < 0 &&
+      i >= 8 - Math.abs(state.handlePosition) &&
+      i <= 7
+    )
+      fill = "#facc15";
     else if (state.handlePosition === 0 && i === 8) fill = "#22c55e";
-    else if (state.handlePosition > 0 && i >= 8 && i <= 8 + state.handlePosition) fill = "#facc15";
+    else if (
+      state.handlePosition > 0 &&
+      i >= 8 &&
+      i <= 8 + state.handlePosition
+    )
+      fill = "#facc15";
     if (state.handlePosition > 0 && i === 8) fill = "#222";
     konvaObjects.notchRects[i].fill(fill);
     konvaObjects.notchLabels[i].fill(labelColor);
@@ -132,35 +234,66 @@ function render(state) {
 }
 
 // --- AudioWorklet連携 ---
-let audioCtx = null, pwmNode = null, gainNode = null;
+let audioCtx = null,
+  pwmNode = null,
+  gainNode = null;
 async function setupAudio() {
-  if (audioCtx) return;
+  console.log("[DEBUG] setupAudio called");
+  if (audioCtx) {
+    console.log("[DEBUG] setupAudio: already initialized");
+    return;
+  }
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  await audioCtx.audioWorklet.addModule("./processor.js");
-  pwmNode = new AudioWorkletNode(audioCtx, "pwm-processor", {
-    parameterData: {
-      signalFreq: 0,
-    },
-  });
+  console.log("[DEBUG] AudioContext created");
+  try {
+    await audioCtx.audioWorklet.addModule("./processor.js");
+    console.log("[DEBUG] AudioWorklet module loaded");
+  } catch (e) {
+    console.error("[DEBUG] Failed to load AudioWorklet module", e);
+    return;
+  }
+  try {
+    pwmNode = new AudioWorkletNode(audioCtx, "pwm-processor", {
+      parameterData: {
+        signalFreq: 0,
+      },
+    });
+    console.log("[DEBUG] AudioWorkletNode created");
+  } catch (e) {
+    console.error("[DEBUG] Failed to create AudioWorkletNode", e);
+    return;
+  }
 
   // Listen for messages from the processor
   pwmNode.port.onmessage = (event) => {
-    if (event.data.type === 'ready') {
+    console.log("[DEBUG][processor->main] Message received:", event.data);
+    if (event.data.type === "ready") {
+      // デバッグ: MODULATION_PATTERNS送信前
+      console.log("[DEBUG] sending MODULATION_PATTERNS", MODULATION_PATTERNS);
       // Processor is ready, now send the modulation patterns
       pwmNode.port.postMessage({ modulationPatterns: MODULATION_PATTERNS });
-    } else if (event.data.type === 'waveform' && ui.modulationInfo) {
+      // デバッグ: MODULATION_PATTERNS送信直後
+      setTimeout(() => {
+        console.log("[DEBUG] MODULATION_PATTERNS sent");
+      }, 0);
+    } else if (event.data.type === "waveform" && ui.modulationInfo) {
       const pattern = event.data.data.pattern;
       if (pattern) {
         let patternText;
-        if (pattern.type === 'async') {
+        if (pattern.type === "async") {
           patternText = `非同期 ${pattern.carrierFreq}Hz`;
         } else {
-          patternText = `同期 ${pattern.pulse === 'wide_3' ? '広域3' : pattern.pulse}パルス`;
+          patternText = `同期 ${
+            pattern.pulse === "wide_3" ? "広域3" : pattern.pulse
+          }パルス`;
         }
         ui.modulationInfo.textContent = `変調方式: ${patternText}`;
       } else {
-        ui.modulationInfo.textContent = '変調方式: -';
+        ui.modulationInfo.textContent = "変調方式: -";
       }
+    } else if (event.data.type === "debug") {
+      // AudioWorkletProcessorからのデバッグ出力
+      console.log("[AudioWorklet DEBUG]", event.data.message, event.data);
     }
   };
 
@@ -238,7 +371,9 @@ window.addEventListener("DOMContentLoaded", () => {
     volumeValue.title = "クリックして直接入力";
     function setVolumeValueDisplay() {
       const v = volumeSlider.value;
-      volumeValue.innerHTML = `${Math.round(v*100)}<span style="font-size:13px;color:#7fffd4;">%</span>`;
+      volumeValue.innerHTML = `${Math.round(
+        v * 100
+      )}<span style="font-size:13px;color:#7fffd4;">%</span>`;
     }
     setVolumeValueDisplay();
     volumeSlider.addEventListener("input", setVolumeValueDisplay);
@@ -267,7 +402,9 @@ window.addEventListener("DOMContentLoaded", () => {
       input.style.overflow = "hidden";
       input.style.marginRight = "2px";
       input.style.boxSizing = "border-box";
-      input.addEventListener("keydown", function (e) { if (e.key === "Enter") input.blur(); });
+      input.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") input.blur();
+      });
       input.addEventListener("blur", function () {
         let v = Number(input.value);
         if (isNaN(v)) v = current;
