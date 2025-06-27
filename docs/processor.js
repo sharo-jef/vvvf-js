@@ -117,10 +117,7 @@ class PwmProcessor extends AudioWorkletProcessor {
           );
         }
       }
-      if (
-        pattern !== prevPattern ||
-        (pattern.type === "async" && carrierFreq !== prevCarrierFreq)
-      ) {
+      if (pattern !== prevPattern) {
         asyncCarrierPhase = 0;
         prevPattern = pattern;
         prevCarrierFreq = carrierFreq;
