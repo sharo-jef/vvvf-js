@@ -526,13 +526,14 @@ window.addEventListener("DOMContentLoaded", () => {
     state.currentSpeed = 0;
     state.volume = 0.5;
     state.lpfCutoff = 5000;
-    state.reverbEnabled = false;
-    if (ui.reverb) ui.reverb.checked = false;
+    state.reverbEnabled = true;
+    if (ui.reverb) ui.reverb.checked = true;
     render(state);
     await setupAudio();
     if (audioCtx && audioCtx.state === "suspended") await audioCtx.resume();
     simulationLoopStarted = false;
     startSimulationLoop();
+    updateAudioConnections();
     updateAudio();
   })();
 });
