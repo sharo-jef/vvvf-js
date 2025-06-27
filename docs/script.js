@@ -143,24 +143,24 @@ async function setupAudio() {
     },
   });
 
-  // Send modulation patterns to the processor
-  pwmNode.port.postMessage({ modulationPatterns: MODULATION_PATTERNS });
-
-  // Listen for messages from the processor (e.g., for UI updates)
+  // Listen for messages from the processor
   pwmNode.port.onmessage = (event) => {
-    if (event.data.type === 'waveform' && ui.modulationInfo) {
-        const pattern = event.data.data.pattern;
-        if (pattern) {
-            let patternText;
-            if (pattern.type === 'async') {
-                patternText = `非同期 ${pattern.carrierFreq}Hz`;
-            } else {
-                patternText = `同期 ${pattern.pulse === 'wide_3' ? '広域3' : pattern.pulse}パルス`;
-            }
-            ui.modulationInfo.textContent = `変調方式: ${patternText}`;
+    if (event.data.type === 'ready') {
+      // Processor is ready, now send the modulation patterns
+      pwmNode.port.postMessage({ modulationPatterns: MODULATION_PATTERNS });
+    } else if (event.data.type === 'waveform' && ui.modulationInfo) {
+      const pattern = event.data.data.pattern;
+      if (pattern) {
+        let patternText;
+        if (pattern.type === 'async') {
+          patternText = `非同期 ${pattern.carrierFreq}Hz`;
         } else {
-            ui.modulationInfo.textContent = '変調方式: -';
+          patternText = `同期 ${pattern.pulse === 'wide_3' ? '広域3' : pattern.pulse}パルス`;
         }
+        ui.modulationInfo.textContent = `変調方式: ${patternText}`;
+      } else {
+        ui.modulationInfo.textContent = '変調方式: -';
+      }
     }
   };
 

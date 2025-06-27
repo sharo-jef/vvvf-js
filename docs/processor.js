@@ -34,6 +34,8 @@ class PwmProcessor extends AudioWorkletProcessor {
         }
       }
     };
+
+    this.port.postMessage({ type: 'ready' });
   }
 
   _getModulationPattern(signalFreq) {
