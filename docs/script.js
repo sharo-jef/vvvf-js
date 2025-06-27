@@ -11,15 +11,28 @@ const DECEL_RATE_EB = 4.5; // km/h/s (EB)
 const ACCEL_RATE_P4 = 3; // km/h/s (加速度, P4時)
 
 // --- 変調パターン定義 ---
-const MODULATION_PATTERNS = [
-  { from: 0, to: 20, type: "async", carrierFreq: 400 },
-  { from: 20, to: 23, type: "sync", pulse: 15 },
-  { from: 23, to: 30, type: "sync", pulse: 11 },
-  { from: 30, to: 35, type: "sync", pulse: 7 },
-  { from: 35, to: 38, type: "sync", pulse: 3 },
-  { from: 38, to: 40, type: "sync", pulse: "wide_3" },
-  { from: 40, to: "max", type: "sync", pulse: 1 },
-];
+// 加速・減速でパターンを分ける
+const MODULATION_PATTERNS = {
+  accel: [
+    { from: 0, to: 20, type: "async", carrierFreq: 400 },
+    { from: 20, to: 23, type: "sync", pulse: 15 },
+    { from: 23, to: 30, type: "sync", pulse: 11 },
+    { from: 30, to: 35, type: "sync", pulse: 7 },
+    { from: 35, to: 38, type: "sync", pulse: 3 },
+    { from: 38, to: 40, type: "sync", pulse: "wide_3" },
+    { from: 40, to: "max", type: "sync", pulse: 1 },
+  ],
+  decel: [
+    { from: 58, to: "max", type: "sync", pulse: 1 },
+    { from: 55, to: 58, type: "sync", pulse: "wide_3" },
+    { from: 52, to: 55, type: "sync", pulse: 3 },
+    { from: 43, to: 52, type: "sync", pulse: 7 },
+    { from: 30, to: 43, type: "sync", pulse: 11 },
+    { from: 23, to: 30, type: "sync", pulse: 15 },
+    { from: 7, to: 23, type: "sync", pulse: 21 },
+    { from: 0, to: 7, type: "mute" }, // 無音
+  ],
+};
 
 // --- DOM要素の取得 ---
 const ui = {
@@ -237,6 +250,61 @@ function render(state) {
 let audioCtx = null,
   pwmNode = null,
   gainNode = null;
+
+// 加減速でパターンを切り替える関数（グローバルスコープに配置）
+function getCurrentModulationPatterns() {
+  // 加速: handlePosition > 0, 減速: handlePosition < 0, ニュートラル: handlePosition === 0
+  if (state.handlePosition > 0) {
+    return MODULATION_PATTERNS.accel;
+  } else if (state.handlePosition < 0) {
+    return MODULATION_PATTERNS.decel;
+  } else {
+    // ニュートラル時は加速パターンを返す（もしくは必要に応じて変更）
+    return MODULATION_PATTERNS.accel;
+  }
+}
+
+// 現在の速度・ノッチに応じた減速時パターンを返す
+function getCurrentDecelPattern(speed) {
+  // speed: Hz相当値
+  for (const pattern of MODULATION_PATTERNS.decel) {
+    const from = pattern.from === "max" ? MAX_FREQ : pattern.from;
+    const to = pattern.to === "max" ? MAX_FREQ : pattern.to;
+    if (pattern.type === "mute") {
+      if (speed >= from && speed < to) {
+        return { type: "mute" };
+      }
+      continue;
+    }
+    if (speed >= from && speed < to) {
+      // sync/asyncパターンはpulse等を必ず持たせる
+      return {
+        type: pattern.type,
+        ...(pattern.type === "sync" ? { pulse: pattern.pulse } : {}),
+        ...(pattern.type === "async"
+          ? { carrierFreq: pattern.carrierFreq }
+          : {}),
+      };
+    }
+    if (
+      typeof from === "number" &&
+      typeof to === "number" &&
+      speed < from &&
+      speed >= to
+    ) {
+      return {
+        type: pattern.type,
+        ...(pattern.type === "sync" ? { pulse: pattern.pulse } : {}),
+        ...(pattern.type === "async"
+          ? { carrierFreq: pattern.carrierFreq }
+          : {}),
+      };
+    }
+  }
+  // 最後のパターン（無音）
+  return { type: "mute" };
+}
+
 async function setupAudio() {
   if (audioCtx) {
     return;
@@ -260,21 +328,26 @@ async function setupAudio() {
   // Listen for messages from the processor
   pwmNode.port.onmessage = (event) => {
     if (event.data.type === "ready") {
-      pwmNode.port.postMessage({ modulationPatterns: MODULATION_PATTERNS });
+      // 加減速でパターンを切り替えて送信
+      pwmNode.port.postMessage({
+        modulationPatterns: getCurrentModulationPatterns(),
+      });
     } else if (event.data.type === "waveform" && ui.modulationInfo) {
       const pattern = event.data.data.pattern;
       if (pattern) {
         let patternText;
         if (pattern.type === "async") {
           patternText = `非同期 ${pattern.carrierFreq}Hz`;
+        } else if (pattern.type === "mute") {
+          patternText = `無音`;
         } else {
           patternText = `同期 ${
             pattern.pulse === "wide_3" ? "広域3" : pattern.pulse
           }パルス`;
         }
-        ui.modulationInfo.textContent = `変調方式: ${patternText}`;
+        ui.modulationInfo.textContent = `${patternText}`;
       } else {
-        ui.modulationInfo.textContent = "変調方式: -";
+        ui.modulationInfo.textContent = "-";
       }
     }
   };
@@ -297,10 +370,33 @@ function updateAudio() {
   gainNode.gain.value =
     state.currentSpeed > 0 && state.handlePosition !== 0 ? state.volume : 0;
 
-  pwmNode.port.postMessage({
-    handlePosition: state.handlePosition === 0 ? "N" : state.handlePosition,
-    speed: state.currentSpeed,
-  });
+  // 減速時は現在速度に応じたパターンのみを送信
+  if (state.handlePosition < 0) {
+    // Hz値でパターンを選択
+    const hz = freqToSend;
+    const decelPattern = getCurrentDecelPattern(hz);
+    // muteの場合はtypeのみ送信（pulse等を送らない）
+    if (decelPattern.type === "mute") {
+      pwmNode.port.postMessage({
+        handlePosition: state.handlePosition,
+        speed: state.currentSpeed,
+        modulationPatterns: [{ type: "mute" }],
+      });
+    } else {
+      pwmNode.port.postMessage({
+        handlePosition: state.handlePosition,
+        speed: state.currentSpeed,
+        modulationPatterns: [decelPattern],
+      });
+    }
+  } else {
+    // 加速・Nは従来通り
+    pwmNode.port.postMessage({
+      handlePosition: state.handlePosition === 0 ? "N" : state.handlePosition,
+      speed: state.currentSpeed,
+      modulationPatterns: getCurrentModulationPatterns(),
+    });
+  }
 }
 function stopAudio() {
   if (audioCtx) audioCtx.suspend();
