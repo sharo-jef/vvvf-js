@@ -27,21 +27,32 @@ const state = {
   currentSpeed: 0,
   isSimulating: false,
   carrierFreq: ui.carrierFreq ? Number(ui.carrierFreq.value) : 2000,
-  volume: ui.volume ? Number(ui.volume.value) : 0.5,
+  volume: ui.volume ? Number(ui.volume.value) * 0.01 : 0.5,
 };
 
 // Konva.js UI描画
 let konvaObjects = {};
 function render(state) {
   // スライダーの値表示が動的に更新されるようにイベントを付与（多重登録防止）
+  // --- 共通の値表示関数 ---
+  function setCarrierFreqValueDisplay(val) {
+    if (ui.carrierFreqValue) {
+      ui.carrierFreqValue.textContent = `${val} Hz`;
+    }
+  }
+  function setVolumeValueDisplay(val) {
+    if (ui.volumeValue) {
+      ui.volumeValue.textContent = `${Math.round(val)} %`;
+    }
+  }
+
   if (
     ui.carrierFreq &&
     ui.carrierFreqValue &&
     !ui.carrierFreq.__copilot_listener
   ) {
     ui.carrierFreq.addEventListener("input", () => {
-      ui.carrierFreqValue.textContent = ui.carrierFreq.value;
-      // スライダー操作時に変数へ反映
+      setCarrierFreqValueDisplay(ui.carrierFreq.value);
       state.carrierFreq = Number(ui.carrierFreq.value);
       updateAudio();
     });
@@ -49,9 +60,8 @@ function render(state) {
   }
   if (ui.volume && ui.volumeValue && !ui.volume.__copilot_listener) {
     ui.volume.addEventListener("input", () => {
-      ui.volumeValue.textContent = ui.volume.value;
-      // スライダー操作時に変数へ反映
-      state.volume = Number(ui.volume.value);
+      setVolumeValueDisplay(ui.volume.value);
+      state.volume = Number(ui.volume.value) * 0.01;
       updateAudio();
     });
     ui.volume.__copilot_listener = true;
@@ -175,7 +185,12 @@ function render(state) {
           if (state.handlePosition > -7) state.handlePosition--;
           break;
         case "A":
-          state.handlePosition = 0;
+          // N(0)に近づく方向に一段動かす
+          if (state.handlePosition > 0) {
+            state.handlePosition--;
+          } else if (state.handlePosition < 0) {
+            state.handlePosition++;
+          }
           break;
         case "1":
           state.handlePosition = -8;
@@ -209,6 +224,9 @@ function render(state) {
   }
   // スピードメーター
   konvaObjects.speedValue.text(Math.round(state.currentSpeed));
+  // スライダー値表示（単位付き）もここで毎回更新
+  setCarrierFreqValueDisplay(ui.carrierFreq ? ui.carrierFreq.value : "");
+  setVolumeValueDisplay(ui.volume ? ui.volume.value : "");
   // HTMLボタンのラベル・色も状態で切り替え
   const btn = document.getElementById("startButton");
   if (btn) {

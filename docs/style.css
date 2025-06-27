@@ -24,3 +24,92 @@ body {
 #speedmeter {
     text-shadow: 0 0 15px rgba(107, 229, 255, 0.5);
 }
+
+/* --- Unity風サイドバーUI用 --- */
+.unity-slider {
+  appearance: none;
+  height: 6px;
+  background: #444;
+  border-radius: 3px;
+  outline: none;
+  transition: background 0.2s;
+}
+.unity-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #bbb;
+  border: none;
+  box-shadow: none;
+  cursor: pointer;
+}
+.unity-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #bbb;
+  border: none;
+  box-shadow: none;
+  cursor: pointer;
+}
+.unity-slider::-ms-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #bbb;
+  border: none;
+  box-shadow: none;
+  cursor: pointer;
+}
+.unity-slider:focus {
+  background: #666;
+}
+/* input[type=number] のスピンボタンを非表示 */
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type=number] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+/* Unity風サイドバー用ボタンデザイン */
+.unity-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(90deg, #23272a 0%, #2563eb 100%);
+  color: #fff;
+  font-weight: 600;
+  font-size: 1.08rem;
+  border: 2px solid #38bdf8;
+  border-radius: 12px;
+  padding: 0.85rem 1.1rem;
+  box-shadow: 0 2px 10px #0003, 0 1.5px 0 #38bdf8 inset;
+  transition: background 0.18s, box-shadow 0.18s, transform 0.09s, border 0.18s;
+  cursor: pointer;
+  letter-spacing: 0.04em;
+  outline: none;
+}
+.unity-btn:hover, .unity-btn:focus {
+  background: linear-gradient(90deg, #1e293b 0%, #38bdf8 100%);
+  border-color: #fff;
+  color: #38bdf8;
+  transform: translateY(-2px) scale(1.025);
+  box-shadow: 0 4px 18px #38bdf866, 0 1.5px 0 #fff inset;
+}
+.unity-btn-icon {
+  font-size: 1.25em;
+  color: #38bdf8;
+  margin-right: 0.5em;
+  display: flex;
+  align-items: center;
+}
+.unity-btn-label {
+  font-weight: 600;
+  font-size: 1em;
+  letter-spacing: 0.06em;
+  color: inherit;
+}
