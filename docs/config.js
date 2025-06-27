@@ -3,7 +3,7 @@
 // =================================================================================
 
 const trainSpecs = {
-  Default: {
+  西武6000系: {
     // 物理パラメータ
     physical: {
       POWER_LEVELS: 4,
@@ -39,7 +39,7 @@ const trainSpecs = {
     },
   },
   // 他の車種データをここに追加できます
-  CustomTrain: {
+  E231系500番台: {
     physical: {
       POWER_LEVELS: 5,
       BRAKE_LEVELS: 8,
