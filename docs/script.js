@@ -70,7 +70,7 @@ function render(state) {
   if (!konvaObjects.stage) {
     // 初回のみKonvaステージ生成（ノッチ・メーターのみ）
     const width = 800, // 横長に拡張
-      height = 400;
+      height = 450; // 縦長を少しだけ拡張
     konvaObjects.stage = new Konva.Stage({
       container: "konva-stage-container",
       width,
