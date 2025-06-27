@@ -1,3 +1,8 @@
+/* ドロップダウンメニューの色をカスタム */
+#train-select option {
+  background: #23272a;
+  color: #fff;
+}
 /* マスコンノッチのライト用 */
 .notch-light {
   box-shadow: none;

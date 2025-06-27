@@ -47,7 +47,7 @@ function initKonvaUI() {
     { length: POWER_LEVELS },
     (_, i) => `P${i + 1}`
   );
-  const labels = ["EB", ...brakeLabels, "N", ...powerLabels];
+  const labels = ["非常", ...brakeLabels, "ユルメ", ...powerLabels];
 
   // ステージとレイヤーの初期化 (一度だけ)
   if (!konvaObjects.stage) {
@@ -69,18 +69,24 @@ function initKonvaUI() {
   konvaObjects.notchLabels = [];
   labels.forEach((text, i) => {
     const y = notchConfig.y_start + i * notchConfig.y_step;
-    const isSpecial = text === "EB" || text === "N";
+    const isSpecial = text === "非常" || text === "ユルメ";
     const width = isSpecial
       ? notchConfig.special_width
       : notchConfig.base_width;
     const x = isSpecial ? notchConfig.special_x : notchConfig.base_x;
 
+    // Nノッチのみ初期状態でactive_n色、それ以外はグレー
+    let fill = "#b0ab99";
+    const NEUTRAL_INDEX = currentSpec.physical.BRAKE_LEVELS + 1;
+    if (i === NEUTRAL_INDEX && state.handlePosition === 0) {
+      fill = notchConfig.colors.active_n;
+    }
     const rect = new Konva.Rect({
       x,
       y,
       width,
       height: notchConfig.base_height,
-      fill: notchConfig.colors.default_bg,
+      fill,
       cornerRadius: 3,
     });
     konvaObjects.layer.add(rect);
@@ -128,10 +134,12 @@ function render() {
   const EB_INDEX = 0;
 
   konvaObjects.notchRects.forEach((rect, i) => {
-    let fill = notchConfig.colors.default_bg;
+    let fill = '#b0ab99'; // デフォルトは明るめグレー縁
     const handle = state.handlePosition;
 
-    if (handle === -(currentSpec.physical.BRAKE_LEVELS + 1)) {
+    if (handle === 0 && i === NEUTRAL_INDEX) {
+      fill = notchConfig.colors.active_n;
+    } else if (handle === -(currentSpec.physical.BRAKE_LEVELS + 1)) {
       if (i === EB_INDEX) fill = notchConfig.colors.active_eb;
       else if (i > EB_INDEX && i < NEUTRAL_INDEX)
         fill = notchConfig.colors.active_b;
@@ -139,8 +147,6 @@ function render() {
       if (i >= NEUTRAL_INDEX - Math.abs(handle) && i < NEUTRAL_INDEX) {
         fill = notchConfig.colors.active_b;
       }
-    } else if (handle === 0) {
-      if (i === NEUTRAL_INDEX) fill = notchConfig.colors.active_n;
     } else if (handle > 0) {
       if (i > NEUTRAL_INDEX && i <= NEUTRAL_INDEX + handle) {
         fill = notchConfig.colors.active_p;
@@ -181,7 +187,7 @@ async function setupAudio() {
   pwmNode.port.onmessage = handlePwmMessage;
 
   try {
-    const response = await fetch("ir/emt_140_bright_1.wav");
+    const response = await fetch("ir/bright.wav");
     const arrayBuffer = await response.arrayBuffer();
     convolverNode.buffer = await audioCtx.decodeAudioData(arrayBuffer);
   } catch (e) {
@@ -199,8 +205,7 @@ function handlePwmMessage({ data }) {
     const { pattern, carrierFreq } = data.data;
     let text = "-";
     if (pattern) {
-      if (pattern.type === "async")
-        text = `非同期 ${carrierFreq.toFixed(1)}Hz`;
+      if (pattern.type === "async") text = `非同期 ${carrierFreq.toFixed(1)}Hz`;
       else if (pattern.type !== "mute")
         text = `同期 ${
           pattern.pulse === "wide_3" ? "広域3" : pattern.pulse
