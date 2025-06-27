@@ -1,5 +1,3 @@
-
-
 // =================================================================================
 // グローバル変数 (Global Variables)
 // =================================================================================
@@ -13,9 +11,11 @@ const dom = {
   reverb: document.getElementById("reverb"),
   resetButton: document.getElementById("resetButton"),
   konvaContainer: "konva-stage-container",
+  trainSelect: document.getElementById("train-select"),
 };
 
-const state = { ...config.initialState };
+const state = { ...globalConfig.initialState };
+let currentSpec = trainSpecs[state.selectedTrain];
 
 let audioCtx = null,
   pwmNode = null,
@@ -35,7 +35,7 @@ function initKonvaUI() {
     stage: stageConfig,
     notch: notchConfig,
     speedometer: speedConfig,
-  } = config.ui;
+  } = globalConfig.ui;
 
   konvaObjects.stage = new Konva.Stage({
     container: dom.konvaContainer,
@@ -101,15 +101,15 @@ function initKonvaUI() {
   konvaObjects.layer.add(konvaObjects.kmhLabel);
 }
 function render() {
-  const { notch: notchConfig } = config.ui;
-  const NEUTRAL_INDEX = config.BRAKE_LEVELS + 1;
+  const { notch: notchConfig } = globalConfig.ui;
+  const NEUTRAL_INDEX = currentSpec.physical.BRAKE_LEVELS + 1;
   const EB_INDEX = 0;
 
   konvaObjects.notchRects.forEach((rect, i) => {
     let fill = notchConfig.colors.default_bg;
     const handle = state.handlePosition;
 
-    if (handle === -config.EB_LEVEL) {
+    if (handle === -(currentSpec.physical.BRAKE_LEVELS + 1)) {
       if (i === EB_INDEX) fill = notchConfig.colors.active_eb;
       else if (i > EB_INDEX && i < NEUTRAL_INDEX)
         fill = notchConfig.colors.active_b;
@@ -171,7 +171,7 @@ async function setupAudio() {
 function handlePwmMessage({ data }) {
   if (data.type === "ready") {
     pwmNode.port.postMessage({
-      modulationPatterns: config.modulationPatterns.accel,
+      modulationPatterns: currentSpec.modulationPatterns.accel,
     });
   } else if (data.type === "waveform" && dom.modulationInfo) {
     const { pattern } = data.data;
@@ -202,7 +202,7 @@ function updateAudio() {
 
   const isAudible = state.currentSpeed > 0 && state.handlePosition !== 0;
   const freq = isAudible
-    ? (state.currentSpeed / config.MAX_SPEED) * config.MAX_FREQ
+    ? (state.currentSpeed / currentSpec.physical.MAX_SPEED) * currentSpec.physical.MAX_FREQ
     : 0;
 
   pwmNode.parameters
@@ -216,8 +216,8 @@ function updateAudio() {
 
   const patterns =
     state.handlePosition < 0
-      ? config.modulationPatterns.decel
-      : config.modulationPatterns.accel;
+      ? currentSpec.modulationPatterns.decel
+      : currentSpec.modulationPatterns.accel;
 
   pwmNode.port.postMessage({
     handlePosition: state.handlePosition === 0 ? "N" : state.handlePosition,
@@ -250,7 +250,7 @@ function simulationLoop(now) {
   updateSpeed(dt);
   state.currentSpeed = Math.max(
     0,
-    Math.min(state.currentSpeed, config.MAX_SPEED)
+    Math.min(state.currentSpeed, currentSpec.physical.MAX_SPEED)
   );
 
   render();
@@ -260,17 +260,19 @@ function simulationLoop(now) {
 
 function updateSpeed(dt) {
   const handle = state.handlePosition;
+  const { physical } = currentSpec;
   if (handle > 0) {
-    const accel = (config.ACCEL_RATE_P4 * handle) / config.POWER_LEVELS;
+    const accel = (physical.ACCEL_RATE_MAX * handle) / physical.POWER_LEVELS;
     state.currentSpeed += accel * dt;
   } else if (handle === 0) {
-    state.currentSpeed -= config.DECEL_RATE_COAST * dt;
+    state.currentSpeed -= physical.DECEL_RATE_COAST * dt;
   } else {
-    if (handle === -config.EB_LEVEL)
-      state.currentSpeed -= config.DECEL_RATE_EB * dt;
-    else if (handle === -config.BRAKE_LEVELS)
-      state.currentSpeed -= config.DECEL_RATE_B7 * dt;
-    else state.currentSpeed -= Math.abs(handle) * config.DECEL_RATE_BRAKE * dt;
+    if (handle === -(physical.BRAKE_LEVELS + 1))
+      state.currentSpeed -= physical.DECEL_RATE_EB * dt;
+    else {
+      const decel = (physical.DECEL_RATE_MAX / physical.BRAKE_LEVELS) * Math.abs(handle);
+      state.currentSpeed -= decel * dt;
+    }      
   }
 }
 
@@ -299,22 +301,37 @@ function setupEventListeners() {
   });
 
   dom.resetButton.addEventListener("click", resetSimulation);
+  dom.trainSelect.addEventListener("change", (e) => {
+    state.selectedTrain = e.target.value;
+    resetSimulation();
+  });
+}
+
+function setupTrainSelector() {
+  Object.keys(trainSpecs).forEach(name => {
+    const option = document.createElement("option");
+    option.value = name;
+    option.textContent = name;
+    dom.trainSelect.appendChild(option);
+  });
+  dom.trainSelect.value = state.selectedTrain;
 }
 
 function handleKeyEvent(e) {
   if (!state.isSimulating) return;
   let changed = false;
   let handle = state.handlePosition;
+  const { physical } = currentSpec;
 
   switch (e.key.toUpperCase()) {
     case "Z":
-      if (handle < config.POWER_LEVELS) {
+      if (handle < physical.POWER_LEVELS) {
         handle++;
         changed = true;
       }
       break;
     case "Q":
-      if (handle > -config.BRAKE_LEVELS) {
+      if (handle > -physical.BRAKE_LEVELS) {
         handle--;
         changed = true;
       }
@@ -329,8 +346,8 @@ function handleKeyEvent(e) {
       }
       break;
     case "1":
-      if (handle !== -config.EB_LEVEL) {
-        handle = -config.EB_LEVEL;
+      if (handle !== -(physical.BRAKE_LEVELS + 1)) {
+        handle = -(physical.BRAKE_LEVELS + 1);
         changed = true;
       }
       break;
@@ -346,7 +363,11 @@ function handleKeyEvent(e) {
 }
 
 function resetSimulation() {
-  Object.assign(state, config.initialState, { isSimulating: true });
+  currentSpec = trainSpecs[state.selectedTrain];
+  Object.assign(state, globalConfig.initialState, { 
+    isSimulating: true,
+    selectedTrain: state.selectedTrain 
+  });
 
   dom.volume.value = state.volume * 100;
   dom.lpf.value = state.lpfCutoff;
@@ -359,9 +380,10 @@ function resetSimulation() {
 
 async function main() {
   initKonvaUI();
+  setupTrainSelector();
   setupEventListeners();
 
-  Object.assign(state, config.initialState, { isSimulating: true });
+  Object.assign(state, globalConfig.initialState, { isSimulating: true });
 
   dom.volume.value = state.volume * 100;
   dom.lpf.value = state.lpfCutoff;
