@@ -26,6 +26,8 @@ const state = {
   handlePosition: 0, // -8 (EB) to 4 (P4)
   currentSpeed: 0,
   isSimulating: false,
+  carrierFreq: ui.carrierFreq ? Number(ui.carrierFreq.value) : 2000,
+  volume: ui.volume ? Number(ui.volume.value) : 0.5,
 };
 
 // Konva.js UI描画
@@ -39,17 +41,23 @@ function render(state) {
   ) {
     ui.carrierFreq.addEventListener("input", () => {
       ui.carrierFreqValue.textContent = ui.carrierFreq.value;
+      // スライダー操作時に変数へ反映
+      state.carrierFreq = Number(ui.carrierFreq.value);
+      updateAudio();
     });
     ui.carrierFreq.__copilot_listener = true;
   }
   if (ui.volume && ui.volumeValue && !ui.volume.__copilot_listener) {
     ui.volume.addEventListener("input", () => {
       ui.volumeValue.textContent = ui.volume.value;
+      // スライダー操作時に変数へ反映
+      state.volume = Number(ui.volume.value);
+      updateAudio();
     });
     ui.volume.__copilot_listener = true;
   }
   if (!konvaObjects.stage) {
-    // 初回のみKonvaステージ生成
+    // 初回のみKonvaステージ生成（ノッチ・メーターのみ）
     const width = 800, // 横長に拡張
       height = 400;
     konvaObjects.stage = new Konva.Stage({
@@ -59,7 +67,7 @@ function render(state) {
     });
     konvaObjects.layer = new Konva.Layer();
     konvaObjects.stage.add(konvaObjects.layer);
-    // 右側ナビバー風の背景
+    // 右側ナビバー風の背景（Konva上の装飾のみ。UIはHTMLで管理）
     konvaObjects.navBarBg = new Konva.Rect({
       x: 650,
       y: 0,
@@ -74,80 +82,6 @@ function render(state) {
       shadowOpacity: 0.2,
     });
     konvaObjects.layer.add(konvaObjects.navBarBg);
-
-    // HTML側のUIを右端に移動
-    const navPanel = document.getElementById("sim-nav-panel");
-    if (!navPanel) {
-      const panel = document.createElement("div");
-      panel.id = "sim-nav-panel";
-      panel.style.position = "absolute";
-      panel.style.top = "0px";
-      panel.style.right = "0px";
-      panel.style.width = "150px";
-      panel.style.height = "400px";
-      panel.style.background = "rgba(34,34,34,0.98)";
-      panel.style.display = "flex";
-      panel.style.flexDirection = "column";
-      panel.style.alignItems = "center";
-      panel.style.justifyContent = "flex-start";
-      panel.style.gap = "18px";
-      panel.style.zIndex = "10";
-      // 搬送波周波数
-      if (ui.carrierFreq && ui.carrierFreqValue) {
-        // label要素をinputの前に取得
-        let freqLabel = null;
-        if (ui.carrierFreq.labels && ui.carrierFreq.labels.length > 0) {
-          freqLabel = ui.carrierFreq.labels[0];
-        } else {
-          // fallback: inputの直前の兄弟要素
-          const prev = ui.carrierFreq.previousElementSibling;
-          if (prev && prev.tagName === "LABEL") freqLabel = prev;
-        }
-        // ラッパーdiv生成
-        const freqWrap = document.createElement("div");
-        freqWrap.style.display = "flex";
-        freqWrap.style.flexDirection = "column";
-        freqWrap.style.alignItems = "center";
-        freqWrap.style.marginTop = "32px";
-        if (freqLabel) freqWrap.appendChild(freqLabel);
-        freqWrap.appendChild(ui.carrierFreq);
-        if (ui.carrierFreqValue) freqWrap.appendChild(ui.carrierFreqValue);
-        panel.appendChild(freqWrap);
-      }
-      // 音量
-      if (ui.volume && ui.volumeValue) {
-        let volLabel = null;
-        if (ui.volume.labels && ui.volume.labels.length > 0) {
-          volLabel = ui.volume.labels[0];
-        } else {
-          const prev = ui.volume.previousElementSibling;
-          if (prev && prev.tagName === "LABEL") volLabel = prev;
-        }
-        const volWrap = document.createElement("div");
-        volWrap.style.display = "flex";
-        volWrap.style.flexDirection = "column";
-        volWrap.style.alignItems = "center";
-        if (volLabel) volWrap.appendChild(volLabel);
-        volWrap.appendChild(ui.volume);
-        if (ui.volumeValue) volWrap.appendChild(ui.volumeValue);
-        panel.appendChild(volWrap);
-      }
-      // シミュレーション開始ボタン
-      const btn = document.getElementById("startButton");
-      if (btn) {
-        btn.style.display = "";
-        btn.style.width = "120px";
-        btn.style.marginTop = "32px";
-        btn.style.marginBottom = "0px";
-        btn.style.fontSize = "18px";
-        btn.style.borderRadius = "8px";
-        btn.style.background = btn.classList.contains("bg-red-600")
-          ? "#dc2626"
-          : "#2563eb";
-        panel.appendChild(btn);
-      }
-      document.body.appendChild(panel);
-    }
     // ノッチ
     konvaObjects.notchRects = [];
     konvaObjects.notchLabels = [];
@@ -312,10 +246,15 @@ function updateAudio() {
     state.currentSpeed > 0 && state.handlePosition !== 0
       ? (state.currentSpeed / MAX_SPEED) * MAX_FREQ
       : 0;
+  // キャリア周波数も反映
+  const carrierParam = pwmNode.parameters.get("carrierFreq");
+  if (carrierParam)
+    carrierParam.setValueAtTime(state.carrierFreq, audioCtx.currentTime);
   const param = pwmNode.parameters.get("signalFreq");
   if (param) param.setValueAtTime(freqToSend, audioCtx.currentTime);
+  // 音量も反映
   gainNode.gain.value =
-    state.currentSpeed > 0 && state.handlePosition !== 0 ? 0.5 : 0;
+    state.currentSpeed > 0 && state.handlePosition !== 0 ? state.volume : 0;
   // AudioWorkletProcessorにhandlePositionとspeedを送信
   pwmNode.port.postMessage({
     handlePosition: state.handlePosition === 0 ? "N" : state.handlePosition,
@@ -353,22 +292,36 @@ function startSimulationLoop() {
 
 // 既存のHTMLボタンでシミュレーション開始/停止
 window.addEventListener("DOMContentLoaded", () => {
+  // sim-nav-panelは廃止。Unity風サイドバー（HTML側）に機能を移譲。
+  // スタートボタンの見た目をUnityサイドバー用に調整
+  const startBtn = document.getElementById("startButton");
+  if (startBtn) {
+    startBtn.style.width = "100%";
+    startBtn.style.marginTop = "32px";
+    startBtn.style.marginBottom = "0px";
+    startBtn.style.fontSize = "18px";
+    startBtn.style.borderRadius = "8px";
+    startBtn.style.background = startBtn.classList.contains("bg-red-600")
+      ? "#dc2626"
+      : "#2563eb";
+  }
   render(state);
-  const btn = document.getElementById("startButton");
-  btn.addEventListener("click", async () => {
-    state.isSimulating = !state.isSimulating;
-    btn.textContent = state.isSimulating
-      ? "シミュレーション停止"
-      : "シミュレーション開始";
-    btn.classList.toggle("bg-blue-600", !state.isSimulating);
-    btn.classList.toggle("bg-red-600", state.isSimulating);
-    render(state);
-    if (state.isSimulating) {
-      await setupAudio();
-      if (audioCtx.state === "suspended") await audioCtx.resume();
-      startSimulationLoop();
-    } else {
-      stopAudio();
-    }
-  });
+  if (startBtn) {
+    startBtn.addEventListener("click", async () => {
+      state.isSimulating = !state.isSimulating;
+      startBtn.textContent = state.isSimulating
+        ? "シミュレーション停止"
+        : "シミュレーション開始";
+      startBtn.classList.toggle("bg-blue-600", !state.isSimulating);
+      startBtn.classList.toggle("bg-red-600", state.isSimulating);
+      render(state);
+      if (state.isSimulating) {
+        await setupAudio();
+        if (audioCtx.state === "suspended") await audioCtx.resume();
+        startSimulationLoop();
+      } else {
+        stopAudio();
+      }
+    });
+  }
 });

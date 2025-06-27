@@ -32,22 +32,74 @@
         </div>
         <!-- 波形表示部分ここまで -->
         
-        <div class="mt-6 space-y-4">
-             <div>
-                <label for="carrierFreq" class="block mb-2 text-sm font-medium text-gray-300">搬送波 周波数 (Carrier Freq.)</label>
-                <div class="flex items-center space-x-4">
-                    <input type="range" id="carrierFreq" min="50" max="10000" value="2000" step="10" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
-                    <span id="carrierFreqValue" class="font-mono text-blue-400 w-24 text-center">2000 Hz</span>
-                </div>
+        <!-- Unity風サイドバーUI -->
+        <div id="unity-sidebar" class="fixed top-0 right-0 h-full w-[220px] bg-[#23272a] border-l border-[#444] flex flex-col items-center py-8 px-4 z-[1000] shadow-2xl">
+          <div class="w-full mb-8">
+            <div class="text-xs font-bold text-[#aaa] tracking-widest mb-2 pl-1">CARRIER FREQ.</div>
+            <div class="flex items-center w-full">
+              <span class="text-xs text-[#888] w-10 text-right mr-2">100</span>
+              <input type="range" id="carrierFreq" min="100" max="3000" value="400" step="10" class="unity-slider" style="flex:1">
+              <span class="text-xs text-[#888] w-10 text-left ml-2">3000</span>
             </div>
-            <div class="mt-4">
-                <label for="volume" class="block mb-2 text-sm font-medium text-gray-300">音量 (Volume)</label>
-                <div class="flex items-center space-x-4">
-                    <input type="range" id="volume" min="0" max="1" value="0.5" step="0.01" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
-                    <span id="volumeValue" class="font-mono text-green-400 w-16 text-center">50%</span>
-                </div>
+            <div class="flex justify-between w-full mt-1">
+              <span class="text-xs text-[#4fc3f7] font-mono">搬送波</span>
+              <span id="carrierFreqValue" class="text-xs text-[#4fc3f7] font-mono">400 Hz</span>
             </div>
+          </div>
+          <div class="w-full mb-8">
+            <div class="text-xs font-bold text-[#aaa] tracking-widest mb-2 pl-1">VOLUME</div>
+            <div class="flex items-center w-full">
+              <span class="text-xs text-[#888] w-10 text-right mr-2">0</span>
+              <input type="range" id="volume" min="0" max="1" value="0.5" step="0.01" class="unity-slider" style="flex:1">
+              <span class="text-xs text-[#888] w-10 text-left ml-2">1</span>
+            </div>
+            <div class="flex justify-between w-full mt-1">
+              <span class="text-xs text-[#7fffd4] font-mono">音量</span>
+              <span id="volumeValue" class="text-xs text-[#7fffd4] font-mono">50%</span>
+            </div>
+          </div>
         </div>
+        <style>
+        .unity-slider {
+          appearance: none;
+          height: 6px;
+          background: #444;
+          border-radius: 3px;
+          outline: none;
+          transition: background 0.2s;
+        }
+        .unity-slider::-webkit-slider-thumb {
+          appearance: none;
+          width: 12px;
+          height: 12px;
+          border-radius: 50%;
+          background: #bbb;
+          border: none;
+          box-shadow: none;
+          cursor: pointer;
+        }
+        .unity-slider::-moz-range-thumb {
+          width: 12px;
+          height: 12px;
+          border-radius: 50%;
+          background: #bbb;
+          border: none;
+          box-shadow: none;
+          cursor: pointer;
+        }
+        .unity-slider::-ms-thumb {
+          width: 12px;
+          height: 12px;
+          border-radius: 50%;
+          background: #bbb;
+          border: none;
+          box-shadow: none;
+          cursor: pointer;
+        }
+        .unity-slider:focus {
+          background: #666;
+        }
+        </style>
 
         <div class="mt-8 text-center">
             <button id="startButton" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:ring-4 focus:ring-blue-800 transition-all duration-300 shadow-lg">
