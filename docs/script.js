@@ -30,7 +30,7 @@ const MODULATION_PATTERNS = {
     { from: 30, to: 43, type: "sync", pulse: 11 },
     { from: 23, to: 30, type: "sync", pulse: 15 },
     { from: 7, to: 23, type: "sync", pulse: 21 },
-    { from: 0, to: 7, type: "mute" }, // 無音
+    { from: 0, to: 7, type: "mute" },
   ],
 };
 
@@ -301,7 +301,6 @@ function getCurrentDecelPattern(speed) {
       };
     }
   }
-  // 最後のパターン（無音）
   return { type: "mute" };
 }
 
@@ -339,7 +338,7 @@ async function setupAudio() {
         if (pattern.type === "async") {
           patternText = `非同期 ${pattern.carrierFreq}Hz`;
         } else if (pattern.type === "mute") {
-          patternText = `無音`;
+          patternText = `-`;
         } else {
           patternText = `同期 ${
             pattern.pulse === "wide_3" ? "広域3" : pattern.pulse

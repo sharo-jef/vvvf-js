@@ -60,13 +60,16 @@ class PwmProcessor extends AudioWorkletProcessor {
     }
     const output = outputs[0];
     const outputChannel = output[0];
-
     if (!outputChannel) {
       return true;
     }
 
     const signalFreqParam = parameters.signalFreq;
     const sampleRate = globalThis.sampleRate;
+
+    // 0Hzから1パルスになる周波数まで線形に電圧値(振幅)を0~1で変動させる
+    // 1パルスになる周波数 = キャリア周波数 (sync: pulse=1)
+    // ただし、pattern.typeがmute/asyncの場合は従来通り
 
     let signalPhase = this.signalPhase;
     let asyncCarrierPhase = this.asyncCarrierPhase;
@@ -147,9 +150,36 @@ class PwmProcessor extends AudioWorkletProcessor {
         }
       }
 
-      const signalU = Math.sin(signalPhase);
-      const signalV = Math.sin(signalPhase - (2 * Math.PI) / 3);
-      const signalW = Math.sin(signalPhase - (4 * Math.PI) / 3);
+      // --- 振幅(電圧値)のスケーリング ---
+      let amplitude = 1;
+      if (pattern.type === "async") {
+        // async: carrierFreqは既に決定済み
+        if (carrierFreq > 0) {
+          amplitude = Math.max(0, Math.min(1, currentSignalFreq / carrierFreq));
+        }
+      } else if (
+        pattern.type === "sync" &&
+        typeof pattern.pulse === "number" &&
+        pattern.pulse === 1
+      ) {
+        // 1パルスになる周波数 = キャリア周波数
+        const carrierFreq = currentSignalFreq; // pulse=1のときキャリア=信号周波数
+        amplitude = Math.max(0, Math.min(1, currentSignalFreq / carrierFreq));
+      } else if (
+        pattern.type === "sync" &&
+        typeof pattern.pulse === "number" &&
+        pattern.pulse > 1
+      ) {
+        // 1パルス未満の範囲でのみスケーリング
+        const carrierFreq = currentSignalFreq * pattern.pulse;
+        if (currentSignalFreq < carrierFreq) {
+          amplitude = Math.max(0, Math.min(1, currentSignalFreq / carrierFreq));
+        }
+      }
+
+      const signalU = Math.sin(signalPhase) * amplitude;
+      const signalV = Math.sin(signalPhase - (2 * Math.PI) / 3) * amplitude;
+      const signalW = Math.sin(signalPhase - (4 * Math.PI) / 3) * amplitude;
 
       const pwmU = signalU > carrierWave ? 1 : -1;
       const pwmV = signalV > carrierWave ? 1 : -1;
