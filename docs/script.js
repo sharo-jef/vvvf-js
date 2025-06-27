@@ -11,7 +11,6 @@ const DECEL_RATE_EB = 4.5; // km/h/s (EB)
 const ACCEL_RATE_P4 = 3; // km/h/s (加速度, P4時)
 
 // --- 変調パターン定義 ---
-// 加速・減速でパターンを分ける
 const MODULATION_PATTERNS = {
   accel: [
     { from: 0, to: 20, type: "async", carrierFreq: 400 },
@@ -42,7 +41,10 @@ const ui = {
   allNotches: document.getElementById("all-notches"),
   volume: document.getElementById("volume"),
   volumeValue: document.getElementById("volumeValue"),
-  modulationInfo: document.getElementById("modulation-info"), // 新しく追加
+  modulationInfo: document.getElementById("modulation-info"),
+  lpf: document.getElementById("lpf"),
+  lpfValue: document.getElementById("lpfValue"),
+  reverb: document.getElementById("reverb"),
 };
 
 // --- 疎結合な状態管理・UI・シミュレーション ---
@@ -51,6 +53,8 @@ const state = {
   currentSpeed: 0,
   isSimulating: false,
   volume: 0.5,
+  lpfCutoff: 5000,
+  reverbEnabled: false,
 };
 
 // Konva.js UI描画
@@ -58,20 +62,43 @@ let konvaObjects = {};
 function render(state) {
   function setVolumeValueDisplay(val) {
     if (ui.volumeValue) {
-      ui.volumeValue.textContent = `${Math.round(val)} %`;
+      ui.volumeValue.textContent = `${Math.round(val * 100)} %`;
+    }
+  }
+  function setLpfValueDisplay(val) {
+    if (ui.lpfValue) {
+      ui.lpfValue.textContent = `${val} Hz`;
     }
   }
 
   if (ui.volume && ui.volumeValue && !ui.volume.__copilot_listener) {
     ui.volume.addEventListener("input", () => {
-      setVolumeValueDisplay(ui.volume.value);
-      state.volume = Number(ui.volume.value) * 0.01;
+      const newVolume = Number(ui.volume.value) / 100;
+      state.volume = newVolume;
+      setVolumeValueDisplay(newVolume);
       updateAudio();
     });
     ui.volume.__copilot_listener = true;
   }
+  if (ui.lpf && ui.lpfValue && !ui.lpf.__copilot_listener) {
+    ui.lpf.addEventListener("input", () => {
+      const newLpfCutoff = Number(ui.lpf.value);
+      state.lpfCutoff = newLpfCutoff;
+      setLpfValueDisplay(newLpfCutoff);
+      updateAudio();
+    });
+    ui.lpf.__copilot_listener = true;
+  }
+  if (ui.reverb && !ui.reverb.__copilot_listener) {
+    ui.reverb.addEventListener("change", (e) => {
+      state.reverbEnabled = e.target.checked;
+      updateAudioConnections();
+    });
+    ui.reverb.__copilot_listener = true;
+  }
+
   if (!konvaObjects.stage) {
-    // ... (Konvaの初���化は変更なし) ...
+    // ... (Konvaの初期化は変更なし) ...
     const width = 800,
       height = 450;
     konvaObjects.stage = new Konva.Stage({
@@ -197,13 +224,14 @@ function render(state) {
         if (audioCtx && audioCtx.state === "suspended") {
           audioCtx.resume();
         }
+        // シミュレーションループが止まっていたら再開
         if (!simulationLoopStarted && state.isSimulating) {
           startSimulationLoop();
         }
       }
     });
   }
-  // ノッチの点灯状態
+  // ... (ノッチとスピードメーターの描画は変更なし) ...
   for (let i = 0; i < konvaObjects.notchRects.length; i++) {
     let fill = "#222";
     let labelColor = "#111";
@@ -226,9 +254,9 @@ function render(state) {
     konvaObjects.notchRects[i].fill(fill);
     konvaObjects.notchLabels[i].fill(labelColor);
   }
-  // スピードメーター
   konvaObjects.speedValue.text(Math.round(state.currentSpeed));
-  setVolumeValueDisplay(ui.volume ? ui.volume.value : "");
+  setVolumeValueDisplay(state.volume);
+  setLpfValueDisplay(state.lpfCutoff);
   const btn = document.getElementById("startButton");
   if (btn) {
     const icon = btn.querySelector(".unity-btn-icon");
@@ -249,87 +277,39 @@ function render(state) {
 // --- AudioWorklet連携 ---
 let audioCtx = null,
   pwmNode = null,
-  gainNode = null;
-
-// 加減速でパターンを切り替える関数（グローバルスコープに配置）
-function getCurrentModulationPatterns() {
-  // 加速: handlePosition > 0, 減速: handlePosition < 0, ニュートラル: handlePosition === 0
-  if (state.handlePosition > 0) {
-    return MODULATION_PATTERNS.accel;
-  } else if (state.handlePosition < 0) {
-    return MODULATION_PATTERNS.decel;
-  } else {
-    // ニュートラル時は加速パターンを返す（もしくは必要に応じて変更）
-    return MODULATION_PATTERNS.accel;
-  }
-}
-
-// 現在の速度・ノッチに応じた減速時パターンを返す
-function getCurrentDecelPattern(speed) {
-  // speed: Hz相当値
-  for (const pattern of MODULATION_PATTERNS.decel) {
-    const from = pattern.from === "max" ? MAX_FREQ : pattern.from;
-    const to = pattern.to === "max" ? MAX_FREQ : pattern.to;
-    if (pattern.type === "mute") {
-      if (speed >= from && speed < to) {
-        return { type: "mute" };
-      }
-      continue;
-    }
-    if (speed >= from && speed < to) {
-      // sync/asyncパターンはpulse等を必ず持たせる
-      return {
-        type: pattern.type,
-        ...(pattern.type === "sync" ? { pulse: pattern.pulse } : {}),
-        ...(pattern.type === "async"
-          ? { carrierFreq: pattern.carrierFreq }
-          : {}),
-      };
-    }
-    if (
-      typeof from === "number" &&
-      typeof to === "number" &&
-      speed < from &&
-      speed >= to
-    ) {
-      return {
-        type: pattern.type,
-        ...(pattern.type === "sync" ? { pulse: pattern.pulse } : {}),
-        ...(pattern.type === "async"
-          ? { carrierFreq: pattern.carrierFreq }
-          : {}),
-      };
-    }
-  }
-  return { type: "mute" };
-}
+  gainNode = null,
+  lpfNode = null,
+  convolverNode = null;
 
 async function setupAudio() {
-  if (audioCtx) {
-    return;
-  }
+  if (audioCtx) return;
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  try {
-    await audioCtx.audioWorklet.addModule("./processor.js");
-  } catch (e) {
-    return;
-  }
-  try {
-    pwmNode = new AudioWorkletNode(audioCtx, "pwm-processor", {
-      parameterData: {
-        signalFreq: 0,
-      },
-    });
-  } catch (e) {
-    return;
-  }
+  await audioCtx.audioWorklet.addModule("./processor.js");
+  pwmNode = new AudioWorkletNode(audioCtx, "pwm-processor", {
+    parameterData: { signalFreq: 0 },
+  });
 
-  // Listen for messages from the processor
+  lpfNode = audioCtx.createBiquadFilter();
+  lpfNode.type = "lowpass";
+  lpfNode.frequency.value = state.lpfCutoff;
+
+  convolverNode = audioCtx.createConvolver();
+
+  gainNode = audioCtx.createGain();
+  gainNode.gain.value = state.volume;
+
+  // Establish permanent connections
+  pwmNode.connect(lpfNode);
+  gainNode.connect(audioCtx.destination);
+
+  // Set up the dynamic part of the chain
+  updateAudioConnections();
+
   pwmNode.port.onmessage = (event) => {
     if (event.data.type === "ready") {
-      // 加減速でパターンを切り替えて送信
+      // On ready, send the initial (acceleration) patterns
       pwmNode.port.postMessage({
-        modulationPatterns: getCurrentModulationPatterns(),
+        modulationPatterns: MODULATION_PATTERNS.accel,
       });
     } else if (event.data.type === "waveform" && ui.modulationInfo) {
       const pattern = event.data.data.pattern;
@@ -351,11 +331,31 @@ async function setupAudio() {
     }
   };
 
-  gainNode = audioCtx.createGain();
-  gainNode.gain.value = 0.5;
-  pwmNode.connect(gainNode);
-  gainNode.connect(audioCtx.destination);
+  // Load impulse response
+  try {
+    const response = await fetch("ir/tunnel.mp3");
+    const arrayBuffer = await response.arrayBuffer();
+    const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+    convolverNode.buffer = audioBuffer;
+    updateAudioConnections(); // Re-connect now that the buffer is loaded
+  } catch (e) {
+    console.error("Failed to load impulse response:", e);
+    if (ui.reverb) ui.reverb.disabled = true;
+  }
 }
+
+function updateAudioConnections() {
+  if (!lpfNode || !gainNode || !convolverNode) return;
+
+  lpfNode.disconnect();
+
+  if (state.reverbEnabled && convolverNode.buffer) {
+    lpfNode.connect(convolverNode).connect(gainNode);
+  } else {
+    lpfNode.connect(gainNode);
+  }
+}
+
 function updateAudio() {
   if (!audioCtx || !pwmNode) return;
   let freqToSend =
@@ -368,40 +368,40 @@ function updateAudio() {
 
   gainNode.gain.value =
     state.currentSpeed > 0 && state.handlePosition !== 0 ? state.volume : 0;
+  lpfNode.frequency.setValueAtTime(state.lpfCutoff, audioCtx.currentTime);
 
-  // 減速時は現在速度に応じたパターンのみを送信
+  let modulationPatterns;
   if (state.handlePosition < 0) {
-    // Hz値でパターンを選択
-    const hz = freqToSend;
-    const decelPattern = getCurrentDecelPattern(hz);
-    // muteの場合はtypeのみ送信（pulse等を送らない）
-    if (decelPattern.type === "mute") {
-      pwmNode.port.postMessage({
-        handlePosition: state.handlePosition,
-        speed: state.currentSpeed,
-        modulationPatterns: [{ type: "mute" }],
-      });
-    } else {
-      pwmNode.port.postMessage({
-        handlePosition: state.handlePosition,
-        speed: state.currentSpeed,
-        modulationPatterns: [decelPattern],
-      });
+    // 減速時は現在の周波数に応じたパターン1つだけを送る
+    let freqToSend = state.currentSpeed > 0 && state.handlePosition !== 0
+      ? (state.currentSpeed / MAX_SPEED) * MAX_FREQ
+      : 0;
+    // Hzスケールでパターンを選択
+    let pattern = null;
+    for (const p of MODULATION_PATTERNS.decel) {
+      const from = p.from === "max" ? MAX_FREQ : p.from;
+      const to = p.to === "max" ? MAX_FREQ : p.to;
+      if (freqToSend >= from && freqToSend < to) {
+        pattern = p;
+        break;
+      }
     }
+    if (!pattern) pattern = { type: "mute" };
+    modulationPatterns = [pattern];
   } else {
-    // 加速・Nは従来通り
-    pwmNode.port.postMessage({
-      handlePosition: state.handlePosition === 0 ? "N" : state.handlePosition,
-      speed: state.currentSpeed,
-      modulationPatterns: getCurrentModulationPatterns(),
-    });
+    modulationPatterns = MODULATION_PATTERNS.accel;
   }
+  pwmNode.port.postMessage({
+    handlePosition: state.handlePosition === 0 ? "N" : state.handlePosition,
+    speed: state.currentSpeed,
+    modulationPatterns: modulationPatterns,
+  });
 }
+
 function stopAudio() {
   if (audioCtx) audioCtx.suspend();
 }
 
-// ... (シミュレーションループとイベントリスナーは変更なし) ...
 let simulationLoopStarted = false;
 function startSimulationLoop() {
   if (simulationLoopStarted) return;
@@ -440,7 +440,6 @@ function startSimulationLoop() {
 }
 
 window.addEventListener("DOMContentLoaded", () => {
-  // ... (音量の数値直接入力のロジックは変更なし) ...
   const volumeValue = document.getElementById("volumeValue");
   const volumeSlider = document.getElementById("volume");
   if (volumeValue && volumeSlider) {
@@ -508,13 +507,15 @@ window.addEventListener("DOMContentLoaded", () => {
   const resetButton = document.getElementById("resetButton");
   if (resetButton) {
     resetButton.addEventListener("click", function () {
-      if (volumeSlider) volumeSlider.value = 0.5;
-      if (typeof setVolumeValueDisplay === "function") setVolumeValueDisplay();
-      state.handlePosition = 0;
-      state.currentSpeed = 0;
-      state.isSimulating = true;
+      if (volumeSlider) volumeSlider.value = 50;
+      if (ui.lpf) ui.lpf.value = 5000;
+      if (ui.reverb) ui.reverb.checked = false;
+      // ...
       state.volume = 0.5;
+      state.lpfCutoff = 5000;
+      state.reverbEnabled = false;
       if (typeof render === "function") render(state);
+      updateAudioConnections();
       updateAudio();
     });
   }
@@ -524,6 +525,9 @@ window.addEventListener("DOMContentLoaded", () => {
     state.handlePosition = 0;
     state.currentSpeed = 0;
     state.volume = 0.5;
+    state.lpfCutoff = 5000;
+    state.reverbEnabled = false;
+    if (ui.reverb) ui.reverb.checked = false;
     render(state);
     await setupAudio();
     if (audioCtx && audioCtx.state === "suspended") await audioCtx.resume();
