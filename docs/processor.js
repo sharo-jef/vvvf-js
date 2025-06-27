@@ -46,7 +46,10 @@ class PwmProcessor extends AudioWorkletProcessor {
       throw new Error("modulationPatterns is not defined or empty");
     }
     for (const pattern of this.modulationPatterns) {
-      if (pattern.to === "max" || signalFreq < pattern.to) {
+      const isInRange =
+        signalFreq >= pattern.from &&
+        (pattern.to === "max" || signalFreq < pattern.to);
+      if (isInRange) {
         return pattern;
       }
     }
