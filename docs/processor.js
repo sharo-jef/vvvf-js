@@ -94,31 +94,50 @@ class PwmProcessor extends AudioWorkletProcessor {
       const pattern = this._getModulationPattern(currentSignalFreq);
       let carrierFreq = null;
       if (pattern.type === "async") {
+        // --- ランダム変調対応 ---
+        let baseCarrierFreq;
         if (typeof pattern.carrierFreq === "object") {
           // 線形補間
           const signalFreqRange = pattern.to - pattern.from;
           const signalFreqOffset = currentSignalFreq - pattern.from;
           const ratio =
             signalFreqRange <= 0 ? 0 : signalFreqOffset / signalFreqRange;
-
           const c_from = pattern.carrierFreq.from;
           const c_to = pattern.carrierFreq.to;
-
           if (this.handlePosition < 0) {
-            // 減速時: S_to -> C_from, S_from -> C_to
-            carrierFreq = c_from * ratio + c_to * (1 - ratio);
+            baseCarrierFreq = c_from * ratio + c_to * (1 - ratio);
           } else {
-            // 加速時: S_from -> C_from, S_to -> C_to
-            carrierFreq = c_from * (1 - ratio) + c_to * ratio;
+            baseCarrierFreq = c_from * (1 - ratio) + c_to * ratio;
           }
         } else if (typeof pattern.carrierFreqRatio === "number") {
-          carrierFreq = currentSignalFreq * pattern.carrierFreqRatio;
+          baseCarrierFreq = currentSignalFreq * pattern.carrierFreqRatio;
         } else if (typeof pattern.carrierFreq === "number") {
-          carrierFreq = pattern.carrierFreq;
+          baseCarrierFreq = pattern.carrierFreq;
         } else {
           throw new Error(
             "async pattern requires carrierFreq (number or object) or carrierFreqRatio"
           );
+        }
+        // ランダム幅が指定されていれば、その範囲でランダム化 (要改良)
+        const randomWidth = pattern.randomWidth || 0;
+        if (randomWidth > 0) {
+          // サンプルごとにランダム値を変えるとノイズになるので、一定周期で更新
+          if (!this._randCarrierValueArr || pattern !== prevPattern) {
+            // 乱数テーブルを生成（1周期分）
+            const randUpdateSamples = Math.floor(sampleRate * 0.005);
+            this._randCarrierValueArr = new Float32Array(randUpdateSamples);
+            for (let j = 0; j < randUpdateSamples; j++) {
+              this._randCarrierValueArr[j] =
+                (Math.random() * 2 - 1) * randomWidth;
+            }
+            this._randCarrierValueArrIdx = 0;
+          }
+          const randUpdateSamples = this._randCarrierValueArr.length;
+          // ループして使う
+          const idx = this._randCarrierValueArrIdx++ % randUpdateSamples;
+          carrierFreq = baseCarrierFreq + this._randCarrierValueArr[idx];
+        } else {
+          carrierFreq = baseCarrierFreq;
         }
       }
       if (pattern !== prevPattern) {

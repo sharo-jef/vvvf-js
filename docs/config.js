@@ -18,7 +18,7 @@ const trainSpecs = {
     // 変調パターン
     modulationPatterns: {
       accel: [
-        { from: 0, to: 20, type: "async", carrierFreq: 400 },
+        { from: 0, to: 20, type: "async", carrierFreq: 400, randomWidth: 0 },
         { from: 20, to: 23, type: "sync", pulse: 15 },
         { from: 23, to: 30, type: "sync", pulse: 11 },
         { from: 30, to: 35, type: "sync", pulse: 7 },
@@ -52,23 +52,42 @@ const trainSpecs = {
     },
     modulationPatterns: {
       accel: [
-        { from: 0, to: 3, type: "async", carrierFreq: 198 },
-        { from: 3, to: 36, type: "async", carrierFreq: { from: 198, to: 880 } },
-        { from: 36, to: 39, type: "async", carrierFreq: 880 },
+        { from: 0, to: 3, type: "async", carrierFreq: 198, randomWidth: 50 },
+        {
+          from: 3,
+          to: 36,
+          type: "async",
+          carrierFreq: { from: 198, to: 880 },
+          randomWidth: 500,
+        },
+        {
+          from: 36,
+          to: 39,
+          type: "async",
+          carrierFreq: 880,
+          randomWidth: 40,
+        },
         { from: 39, to: 52, type: "sync", pulse: 3 },
         { from: 52, to: "max", type: "sync", pulse: 1 },
       ],
       decel: [
         { from: 58, to: "max", type: "sync", pulse: 1 },
         { from: 50, to: 58, type: "sync", pulse: 3 },
-        { from: 40, to: 50, type: "async", carrierFreq: 1000 },
+        {
+          from: 40,
+          to: 50,
+          type: "async",
+          carrierFreq: 1000,
+          randomWidth: 800,
+        },
         {
           from: 4,
           to: 40,
           type: "async",
           carrierFreq: { from: 1000, to: 169 },
+          randomWidth: 80,
         },
-        { from: 0, to: 4, type: "async", carrierFreq: 169 },
+        { from: 0, to: 4, type: "async", carrierFreq: 169, randomWidth: 10 },
       ],
     },
   },
