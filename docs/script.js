@@ -8,6 +8,7 @@ const DECEL_RATE_COAST = 0.3; // Hz per second (natural deceleration)
 const DECEL_RATE_BRAKE = 0.8; // Hz per second per notch (B1~B6)
 const DECEL_RATE_B7 = 4.2; // km/h/s (B7)
 const DECEL_RATE_EB = 4.5; // km/h/s (EB)
+const ACCEL_RATE_P4 = 3; // km/h/s (加速度, P4時)
 
 // --- DOM要素の取得 ---
 const ui = {
@@ -313,13 +314,27 @@ function startSimulationLoop() {
     }
     const dt = (now - lastTime) / 1000;
     lastTime = now;
-    // 速度計算例（P段で加速、B段で減速、Nで自然減速）
+    // 速度計算（定義した加速度・減速度を使う）
     if (state.handlePosition > 0) {
-      state.currentSpeed += state.handlePosition * 0.5 * dt;
+      // 加速: P4でACCEL_RATE_P4、ノッチに応じて線形配分
+      const accel = (ACCEL_RATE_P4 * state.handlePosition) / POWER_LEVELS;
+      state.currentSpeed += accel * dt;
     } else if (state.handlePosition === 0) {
-      state.currentSpeed -= 0.3 * dt;
+      // ニュートラル: 自然減速
+      state.currentSpeed -= DECEL_RATE_COAST * dt;
     } else if (state.handlePosition < 0) {
-      state.currentSpeed -= Math.abs(state.handlePosition) * 0.8 * dt;
+      // ブレーキ段
+      if (state.handlePosition === -8) {
+        // EB
+        state.currentSpeed -= DECEL_RATE_EB * dt;
+      } else if (state.handlePosition === -7) {
+        // B7
+        state.currentSpeed -= DECEL_RATE_B7 * dt;
+      } else {
+        // B1~B6
+        state.currentSpeed -=
+          Math.abs(state.handlePosition) * DECEL_RATE_BRAKE * dt;
+      }
     }
     // 速度の下限・上限
     if (state.currentSpeed < 0) state.currentSpeed = 0;
