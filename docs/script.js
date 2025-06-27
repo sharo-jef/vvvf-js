@@ -77,21 +77,7 @@ function render(state) {
     });
     konvaObjects.layer = new Konva.Layer();
     konvaObjects.stage.add(konvaObjects.layer);
-    // 右側ナビバー風の背景（Konva上の装飾のみ。UIはHTMLで管理）
-    konvaObjects.navBarBg = new Konva.Rect({
-      x: 650,
-      y: 0,
-      width: 150,
-      height: 400,
-      fill: "#222",
-      cornerRadius: 0,
-      strokeWidth: 0,
-      shadowColor: "#000",
-      shadowBlur: 8,
-      shadowOffset: { x: -2, y: 0 },
-      shadowOpacity: 0.2,
-    });
-    konvaObjects.layer.add(konvaObjects.navBarBg);
+    // 右側ナビバー風の背景（不要な灰色の四角）を描画しない
     // ノッチ
     konvaObjects.notchRects = [];
     konvaObjects.notchLabels = [];
