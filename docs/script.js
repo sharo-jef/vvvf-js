@@ -11,11 +11,8 @@ const DECEL_RATE_EB = 4.5; // km/h/s (EB)
 
 // --- DOM要素の取得 ---
 const ui = {
-  startButton: document.getElementById("startButton"),
   carrierFreq: document.getElementById("carrierFreq"),
   carrierFreqValue: document.getElementById("carrierFreqValue"),
-  // acceleration: document.getElementById("acceleration"),
-  // accelerationValue: document.getElementById("accelerationValue"),
   waveformCanvas: document.getElementById("waveformCanvas"),
   speedmeter: document.getElementById("speedmeter"),
   handleContainer: document.getElementById("handle-container"),
@@ -24,396 +21,354 @@ const ui = {
   volumeValue: document.getElementById("volumeValue"),
 };
 
-// --- アプリケーションの状態 ---
+// --- 疎結合な状態管理・UI・シミュレーション ---
 const state = {
-  audioCtx: null,
-  pwmNode: null,
-  gainNode: null,
-  isSimulating: false,
   handlePosition: 0, // -8 (EB) to 4 (P4)
-  currentFreq: 0,
   currentSpeed: 0,
-  acceleration: 3.0, // km/h/s（UIからは変更不可、プログラムからは可）
-  lastUpdateTime: performance.now(),
+  isSimulating: false,
 };
 
-// --- 初期化 ---
-function init() {
-  setupHandleUI();
-  addEventListeners();
-  clearCanvas();
-  // acceleration UIは削除したので何もしない
-}
-
-function setupHandleUI() {
-  // EB
-  const ebNotch = createNotchElement("EB", "eb");
-  ui.allNotches.appendChild(ebNotch);
-  // B7~B1
-  for (let i = BRAKE_LEVELS; i >= 1; i--) {
-    const notch = createNotchElement(`B${i}`, `b${i}`);
-    ui.allNotches.appendChild(notch);
+// Konva.js UI描画
+let konvaObjects = {};
+function render(state) {
+  // スライダーの値表示が動的に更新されるようにイベントを付与（多重登録防止）
+  if (
+    ui.carrierFreq &&
+    ui.carrierFreqValue &&
+    !ui.carrierFreq.__copilot_listener
+  ) {
+    ui.carrierFreq.addEventListener("input", () => {
+      ui.carrierFreqValue.textContent = ui.carrierFreq.value;
+    });
+    ui.carrierFreq.__copilot_listener = true;
   }
-  // N
-  const nNotch = createNotchElement("N", "n");
-  ui.allNotches.appendChild(nNotch);
-  // P1~P4
-  for (let i = 1; i <= POWER_LEVELS; i++) {
-    const notch = createNotchElement(`P${i}`, `p${i}`);
-    ui.allNotches.appendChild(notch);
+  if (ui.volume && ui.volumeValue && !ui.volume.__copilot_listener) {
+    ui.volume.addEventListener("input", () => {
+      ui.volumeValue.textContent = ui.volume.value;
+    });
+    ui.volume.__copilot_listener = true;
   }
-}
+  if (!konvaObjects.stage) {
+    // 初回のみKonvaステージ生成
+    const width = 800, // 横長に拡張
+      height = 400;
+    konvaObjects.stage = new Konva.Stage({
+      container: "konva-stage-container",
+      width,
+      height,
+    });
+    konvaObjects.layer = new Konva.Layer();
+    konvaObjects.stage.add(konvaObjects.layer);
+    // 右側ナビバー風の背景
+    konvaObjects.navBarBg = new Konva.Rect({
+      x: 650,
+      y: 0,
+      width: 150,
+      height: 400,
+      fill: "#222",
+      cornerRadius: 0,
+      strokeWidth: 0,
+      shadowColor: "#000",
+      shadowBlur: 8,
+      shadowOffset: { x: -2, y: 0 },
+      shadowOpacity: 0.2,
+    });
+    konvaObjects.layer.add(konvaObjects.navBarBg);
 
-function createNotchElement(label, notchId) {
-  const wrapper = document.createElement("div");
-  wrapper.classList.add("flex-1", "flex", "items-center", "justify-center");
-  wrapper.dataset.notch = notchId;
-  // ライト
-  const light = document.createElement("div");
-  light.classList.add(
-    "notch-light",
-    "mr-2",
-    "border-2",
-    "border-gray-600",
-    "transition-all"
-  );
-  // 段名
-  const text = document.createElement("span");
-  text.textContent = label;
-  text.classList.add("font-bold", "text-sm", "text-black", "select-none");
-  light.appendChild(text);
-  wrapper.appendChild(light);
-  return wrapper;
-}
-
-function updateHandleLights() {
-  // 全ノッチのライトをリセット
-  const notches = ui.allNotches.querySelectorAll("[data-notch] > .notch-light");
-  notches.forEach((light, idx) => {
-    light.style.backgroundColor = "#222";
-    light.style.opacity = "0.3";
-    light.style.boxShadow = "none";
-  });
-  // 点灯ロジック
-  // EB: -8, B7: -7 ... B1: -1, N: 0, P1: 1 ... P4: 4
-  // EB: EB+全B点灯(赤/黄), B: B1~現在段まで点灯(黄), N: Nのみ点灯(緑), P: P1~現在段まで点灯(水色)
-  if (state.handlePosition === -EB_LEVEL) {
-    // EB
-    for (let i = 0; i <= BRAKE_LEVELS; i++) {
-      const light = ui.allNotches.children[i].querySelector(".notch-light");
-      if (i === 0) {
-        // EB
-        light.style.backgroundColor = "#ef4444"; // 赤
-        light.style.opacity = "1";
-        light.style.boxShadow = "0 0 12px 4px #ef4444aa";
-      } else {
-        // B
-        light.style.backgroundColor = "#facc15"; // 黄
-        light.style.opacity = "1";
-        light.style.boxShadow = "0 0 8px 2px #facc15aa";
+    // HTML側のUIを右端に移動
+    const navPanel = document.getElementById("sim-nav-panel");
+    if (!navPanel) {
+      const panel = document.createElement("div");
+      panel.id = "sim-nav-panel";
+      panel.style.position = "absolute";
+      panel.style.top = "0px";
+      panel.style.right = "0px";
+      panel.style.width = "150px";
+      panel.style.height = "400px";
+      panel.style.background = "rgba(34,34,34,0.98)";
+      panel.style.display = "flex";
+      panel.style.flexDirection = "column";
+      panel.style.alignItems = "center";
+      panel.style.justifyContent = "flex-start";
+      panel.style.gap = "18px";
+      panel.style.zIndex = "10";
+      // 搬送波周波数
+      if (ui.carrierFreq && ui.carrierFreqValue) {
+        // label要素をinputの前に取得
+        let freqLabel = null;
+        if (ui.carrierFreq.labels && ui.carrierFreq.labels.length > 0) {
+          freqLabel = ui.carrierFreq.labels[0];
+        } else {
+          // fallback: inputの直前の兄弟要素
+          const prev = ui.carrierFreq.previousElementSibling;
+          if (prev && prev.tagName === "LABEL") freqLabel = prev;
+        }
+        // ラッパーdiv生成
+        const freqWrap = document.createElement("div");
+        freqWrap.style.display = "flex";
+        freqWrap.style.flexDirection = "column";
+        freqWrap.style.alignItems = "center";
+        freqWrap.style.marginTop = "32px";
+        if (freqLabel) freqWrap.appendChild(freqLabel);
+        freqWrap.appendChild(ui.carrierFreq);
+        if (ui.carrierFreqValue) freqWrap.appendChild(ui.carrierFreqValue);
+        panel.appendChild(freqWrap);
       }
+      // 音量
+      if (ui.volume && ui.volumeValue) {
+        let volLabel = null;
+        if (ui.volume.labels && ui.volume.labels.length > 0) {
+          volLabel = ui.volume.labels[0];
+        } else {
+          const prev = ui.volume.previousElementSibling;
+          if (prev && prev.tagName === "LABEL") volLabel = prev;
+        }
+        const volWrap = document.createElement("div");
+        volWrap.style.display = "flex";
+        volWrap.style.flexDirection = "column";
+        volWrap.style.alignItems = "center";
+        if (volLabel) volWrap.appendChild(volLabel);
+        volWrap.appendChild(ui.volume);
+        if (ui.volumeValue) volWrap.appendChild(ui.volumeValue);
+        panel.appendChild(volWrap);
+      }
+      // シミュレーション開始ボタン
+      const btn = document.getElementById("startButton");
+      if (btn) {
+        btn.style.display = "";
+        btn.style.width = "120px";
+        btn.style.marginTop = "32px";
+        btn.style.marginBottom = "0px";
+        btn.style.fontSize = "18px";
+        btn.style.borderRadius = "8px";
+        btn.style.background = btn.classList.contains("bg-red-600")
+          ? "#dc2626"
+          : "#2563eb";
+        panel.appendChild(btn);
+      }
+      document.body.appendChild(panel);
     }
-  } else if (state.handlePosition < 0) {
-    // B段
-    const brakeIdx = Math.abs(state.handlePosition);
-    // B1: children[7], B2: children[6,7], ... B7: children[1-7]
-    for (let i = BRAKE_LEVELS + 1 - brakeIdx; i <= BRAKE_LEVELS; i++) {
-      const light = ui.allNotches.children[i].querySelector(".notch-light");
-      light.style.backgroundColor = "#facc15"; // 黄
-      light.style.opacity = "1";
-      light.style.boxShadow = "0 0 8px 2px #facc15aa";
+    // ノッチ
+    konvaObjects.notchRects = [];
+    konvaObjects.notchLabels = [];
+    const notchLabels = [
+      "EB",
+      "B7",
+      "B6",
+      "B5",
+      "B4",
+      "B3",
+      "B2",
+      "B1",
+      "N",
+      "P1",
+      "P2",
+      "P3",
+      "P4",
+    ];
+    for (let i = 0; i < notchLabels.length; i++) {
+      const y = 40 + i * 30; // 少し間隔を詰める
+      // EBとNは横長
+      let width = 45,
+        height = 22,
+        x = 70;
+      if (i === 0 || i === 8) {
+        // EB, N
+        width = 60;
+        x = 62;
+      }
+      const rect = new Konva.Rect({
+        x,
+        y,
+        width,
+        height,
+        fill: "#222",
+        cornerRadius: 0, // 角を丸めない
+        strokeWidth: 0, // ふちなし
+      });
+      konvaObjects.layer.add(rect);
+      konvaObjects.notchRects.push(rect);
+      const label = new Konva.Text({
+        x,
+        y: y + 2,
+        width,
+        height,
+        text: notchLabels[i],
+        fontSize: 15,
+        fontStyle: "bold",
+        align: "center",
+        verticalAlign: "middle",
+        fill: "#111",
+      });
+      konvaObjects.layer.add(label);
+      konvaObjects.notchLabels.push(label);
     }
-  } else if (state.handlePosition === 0) {
-    // N
-    const nIdx = BRAKE_LEVELS + 1;
-    const light = ui.allNotches.children[nIdx].querySelector(".notch-light");
-    light.style.backgroundColor = "#22c55e"; // 緑
-    light.style.opacity = "1";
-    light.style.boxShadow = "0 0 8px 2px #22c55eaa";
-  } else if (state.handlePosition > 0) {
-    // P段
-    for (let i = 1; i <= state.handlePosition; i++) {
-      const idx = BRAKE_LEVELS + 1 + i;
-      const light = ui.allNotches.children[idx].querySelector(".notch-light");
-      light.style.backgroundColor = "#38bdf8"; // 水色
-      light.style.opacity = "1";
-      light.style.boxShadow = "0 0 8px 2px #38bdf8aa";
-    }
+    // スピードメーター
+    konvaObjects.speedValue = new Konva.Text({
+      x: 400,
+      y: 20,
+      width: 180,
+      height: 60,
+      text: "0",
+      fontSize: 56,
+      fontFamily: "monospace",
+      fontStyle: "bold",
+      fill: "#22d3ee",
+      align: "center",
+      verticalAlign: "middle",
+    });
+    konvaObjects.layer.add(konvaObjects.speedValue);
+    konvaObjects.kmhLabel = new Konva.Text({
+      x: 400,
+      y: 80,
+      width: 180,
+      height: 30,
+      text: "km/h",
+      fontSize: 22,
+      fill: "#aaa",
+      align: "center",
+      verticalAlign: "middle",
+    });
+    konvaObjects.layer.add(konvaObjects.kmhLabel);
+    // キー操作
+    window.addEventListener("keydown", (e) => {
+      if (!state.isSimulating) return;
+      switch (e.key.toUpperCase()) {
+        case "Z":
+          if (state.handlePosition < 4) state.handlePosition++;
+          break;
+        case "Q":
+          if (state.handlePosition > -7) state.handlePosition--;
+          break;
+        case "A":
+          state.handlePosition = 0;
+          break;
+        case "1":
+          state.handlePosition = -8;
+          break;
+      }
+      render(state);
+    });
   }
+  // ノッチの点灯状態
+  for (let i = 0; i < konvaObjects.notchRects.length; i++) {
+    let fill = "#222";
+    let labelColor = "#111";
+    if (state.handlePosition === -8 && i === 0) fill = "#ef4444"; // EB
+    else if (state.handlePosition === -8 && i > 0 && i <= 7)
+      fill = "#facc15"; // EB+B
+    else if (
+      state.handlePosition < 0 &&
+      i >= 8 - Math.abs(state.handlePosition) &&
+      i <= 7
+    )
+      fill = "#facc15"; // B
+    else if (state.handlePosition === 0 && i === 8) fill = "#22c55e"; // N
+    else if (
+      state.handlePosition > 0 &&
+      i >= 8 &&
+      i <= 8 + state.handlePosition
+    )
+      fill = "#38bdf8"; // P
+    konvaObjects.notchRects[i].fill(fill);
+    konvaObjects.notchLabels[i].fill(labelColor);
+  }
+  // スピードメーター
+  konvaObjects.speedValue.text(Math.round(state.currentSpeed));
+  // HTMLボタンのラベル・色も状態で切り替え
+  const btn = document.getElementById("startButton");
+  if (btn) {
+    btn.textContent = state.isSimulating
+      ? "シミュレーション停止"
+      : "シミュレーション開始";
+    btn.style.background = state.isSimulating ? "#dc2626" : "#2563eb";
+  }
+  konvaObjects.layer.draw();
 }
 
-// --- AudioWorkletのセ���トアップ ---
+// --- AudioWorklet連携 ---
+let audioCtx = null,
+  pwmNode = null,
+  gainNode = null;
 async function setupAudio() {
-  if (state.audioCtx) return;
-  try {
-    state.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    await state.audioCtx.audioWorklet.addModule("./processor.js");
-    state.pwmNode = new AudioWorkletNode(state.audioCtx, "pwm-processor", {
-      parameterData: {
-        carrierFreq: parseFloat(ui.carrierFreq.value),
-        signalFreq: state.currentFreq,
-      },
-    });
-    // GainNodeを作成し、音量調整用に接続
-    state.gainNode = state.audioCtx.createGain();
-    state.gainNode.gain.value = 1.0; // デフォルト音量
-    state.pwmNode.connect(state.gainNode);
-    state.gainNode.connect(state.audioCtx.destination);
-    state.pwmNode.port.onmessage = (event) => {
-      if (event.data.type === "waveform") {
-        drawWaveform(event.data.data);
-      }
-    };
-  } catch (e) {
-    console.error("Audio setup failed:", e);
-    alert(
-      "オーディオの初期化に失敗しました。ブラウザが対応していない可能性があります。"
-    );
-  }
+  if (audioCtx) return;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  await audioCtx.audioWorklet.addModule("./processor.js");
+  pwmNode = new AudioWorkletNode(audioCtx, "pwm-processor", {
+    parameterData: {
+      carrierFreq: 2000,
+      signalFreq: 0,
+    },
+  });
+  gainNode = audioCtx.createGain();
+  gainNode.gain.value = 0.5;
+  pwmNode.connect(gainNode);
+  gainNode.connect(audioCtx.destination);
+}
+function updateAudio() {
+  if (!audioCtx || !pwmNode) return;
+  // Neutralまたは速度0のときは無音
+  let freqToSend =
+    state.currentSpeed > 0 && state.handlePosition !== 0
+      ? (state.currentSpeed / MAX_SPEED) * MAX_FREQ
+      : 0;
+  const param = pwmNode.parameters.get("signalFreq");
+  if (param) param.setValueAtTime(freqToSend, audioCtx.currentTime);
+  gainNode.gain.value =
+    state.currentSpeed > 0 && state.handlePosition !== 0 ? 0.5 : 0;
+  // AudioWorkletProcessorにhandlePositionとspeedを送信
+  pwmNode.port.postMessage({
+    handlePosition: state.handlePosition === 0 ? "N" : state.handlePosition,
+    speed: state.currentSpeed,
+  });
+}
+function stopAudio() {
+  if (audioCtx) audioCtx.suspend();
 }
 
-// --- シミュレーションの開始/停止 ---
-async function toggleSimulation() {
-  if (!state.isSimulating) {
-    await startSimulation();
-  } else {
-    stopSimulation();
-  }
-}
-
-async function startSimulation() {
-  if (!state.audioCtx) {
-    await setupAudio();
-  }
-  if (state.audioCtx.state === "suspended") {
-    await state.audioCtx.resume();
-  }
-  // AudioWorkletNodeのパラメータを初期値でセット（Nまたは停止中なら0）
-  let freqToSend = state.currentFreq;
-  if (state.handlePosition === 0 || state.currentSpeed === 0) {
-    freqToSend = 0;
-  }
-  if (state.pwmNode) {
-    const param = state.pwmNode.parameters.get("signalFreq");
-    if (param) {
-      param.setValueAtTime(freqToSend, state.audioCtx.currentTime);
+// 疎結合なシミュレーションループ
+function startSimulationLoop() {
+  let lastTime = performance.now();
+  function loop(now) {
+    if (!state.isSimulating) {
+      stopAudio();
+      return;
     }
+    const dt = (now - lastTime) / 1000;
+    lastTime = now;
+    // 速度計算例（P段で加速、B段で減速、Nで自然減速）
+    if (state.handlePosition > 0)
+      state.currentSpeed += state.handlePosition * 0.5 * dt;
+    else if (state.handlePosition === 0) state.currentSpeed -= 0.3 * dt;
+    else if (state.handlePosition < 0)
+      state.currentSpeed -= Math.abs(state.handlePosition) * 0.8 * dt;
+    if (state.currentSpeed < 0) state.currentSpeed = 0;
+    if (state.currentSpeed > 120) state.currentSpeed = 120;
+    render(state);
+    updateAudio();
+    requestAnimationFrame(loop);
   }
-  state.isSimulating = true;
-  state.lastUpdateTime = performance.now();
-  ui.startButton.textContent = "シミュレーション停止";
-  ui.startButton.classList.replace("bg-blue-600", "bg-red-600");
-  requestAnimationFrame(simulationLoop);
+  requestAnimationFrame(loop);
 }
 
-function stopSimulation() {
-  state.isSimulating = false;
-  if (state.audioCtx && state.audioCtx.state === "running") {
-    state.audioCtx.suspend();
-  }
-  state.currentFreq = 0;
-  state.currentSpeed = 0;
-  updateUI();
-  ui.startButton.textContent = "シミュレーション開始";
-  ui.startButton.classList.replace("bg-red-600", "bg-blue-600");
-}
-
-// --- メインのシミュレーションループ ---
-function simulationLoop(timestamp) {
-  if (!state.isSimulating) return;
-
-  const deltaTime = (timestamp - state.lastUpdateTime) / 1000; // seconds
-
-  // 周波数の更新
-  updateFrequency(deltaTime);
-
-  // 速度の更新 (周波数に比例)
-  state.currentSpeed = (state.currentFreq / MAX_FREQ) * MAX_SPEED;
-  if (state.currentSpeed < 0) state.currentSpeed = 0;
-  if (state.currentSpeed > MAX_SPEED) state.currentSpeed = MAX_SPEED;
-
-  // Neutralまたは速度0のときは必ず無音にする
-  let freqToSend = state.currentFreq;
-  const isSilent = state.handlePosition === 0 || state.currentSpeed === 0;
-  if (isSilent) {
-    freqToSend = 0;
-  }
-  if (state.pwmNode) {
-    const param = state.pwmNode.parameters.get("signalFreq");
-    if (param) {
-      param.setValueAtTime(freqToSend, state.audioCtx.currentTime);
-    }
-    // handlePositionとspeedをAudioWorkletに送信
-    state.pwmNode.port.postMessage({
-      handlePosition: state.handlePosition === 0 ? "N" : state.handlePosition,
-      speed: state.currentSpeed,
-    });
-  }
-  // Nまたは0kmのときは音量0、それ以外はスライダー値
-  if (state.gainNode) {
-    state.gainNode.gain.value = isSilent ? 0 : parseFloat(ui.volume.value);
-  }
-
-  // UIの更新
-  updateUI();
-
-  state.lastUpdateTime = timestamp;
-  requestAnimationFrame(simulationLoop);
-}
-
-function updateFrequency(deltaTime) {
-  // P4の時に state.acceleration と同じ加速度になるように、最大パワーレベルで割る
-  const accelRateHz = state.acceleration / POWER_LEVELS;
-  if (state.handlePosition > 0) {
-    // Power
-    state.currentFreq += state.handlePosition * accelRateHz * deltaTime;
-  } else if (state.handlePosition === 0) {
-    // Neutral (Coasting)
-    state.currentFreq -= DECEL_RATE_COAST * deltaTime;
-  } else {
-    // Brake
-    // EB: -8, B7: -7, B6: -6 ... B1: -1
-    if (state.handlePosition === -EB_LEVEL) {
-      // EB
-      state.currentFreq -= DECEL_RATE_EB * deltaTime;
-    } else if (state.handlePosition === -BRAKE_LEVELS) {
-      // B7
-      state.currentFreq -= DECEL_RATE_B7 * deltaTime;
+// 既存のHTMLボタンでシミュレーション開始/停止
+window.addEventListener("DOMContentLoaded", () => {
+  render(state);
+  const btn = document.getElementById("startButton");
+  btn.addEventListener("click", async () => {
+    state.isSimulating = !state.isSimulating;
+    btn.textContent = state.isSimulating
+      ? "シミュレーション停止"
+      : "シミュレーション開始";
+    btn.classList.toggle("bg-blue-600", !state.isSimulating);
+    btn.classList.toggle("bg-red-600", state.isSimulating);
+    render(state);
+    if (state.isSimulating) {
+      await setupAudio();
+      if (audioCtx.state === "suspended") await audioCtx.resume();
+      startSimulationLoop();
     } else {
-      // B1~B6
-      const brakeForce = Math.abs(state.handlePosition);
-      state.currentFreq -= brakeForce * DECEL_RATE_BRAKE * deltaTime;
-    }
-  }
-
-  if (state.currentFreq < 0) state.currentFreq = 0;
-  if (state.currentFreq > MAX_FREQ) state.currentFreq = MAX_FREQ;
-}
-
-// --- UI更新 ---
-function updateUI() {
-  ui.speedmeter.textContent = Math.round(state.currentSpeed);
-  updateHandleLights();
-}
-
-// --- イベントリスナー ---
-function addEventListeners() {
-  // 音量スライダー
-  ui.volume.addEventListener("input", (e) => {
-    const val = parseFloat(e.target.value);
-    if (state.gainNode) {
-      state.gainNode.gain.value = val;
-    }
-    ui.volumeValue.textContent = Math.round(val * 100) + "%";
-  });
-  ui.startButton.addEventListener("click", toggleSimulation);
-
-  ui.carrierFreq.addEventListener("input", (e) => {
-    const val = parseFloat(e.target.value);
-    ui.carrierFreqValue.textContent = `${val} Hz`;
-    if (state.pwmNode) {
-      const param = state.pwmNode.parameters.get("carrierFreq");
-      if (param) {
-        param.setValueAtTime(val, state.audioCtx.currentTime);
-      }
+      stopAudio();
     }
   });
-
-  // acceleration UIは削除したのでイベントリスナー不要
-
-  window.addEventListener("keydown", handleKeyPress);
-}
-
-function handleKeyPress(e) {
-  if (!state.isSimulating) return;
-
-  switch (e.key.toUpperCase()) {
-    case "Z": // マスコン進段 (Power up)
-      if (state.handlePosition < POWER_LEVELS) {
-        state.handlePosition++;
-      }
-      break;
-    case "Q": // ブレーキ進段 (Brake up)
-      // B7までしか入らない（EBにはQで入らない）
-      if (state.handlePosition > -BRAKE_LEVELS) {
-        state.handlePosition--;
-      }
-      break;
-    case "A": // 惰行 (Neutral)
-      state.handlePosition = 0;
-      break;
-    case "1": // EB
-      state.handlePosition = -EB_LEVEL;
-      break;
-  }
-  updateUI();
-}
-
-// --- 波形描画関連 (変更なし) ---
-const canvasCtx = ui.waveformCanvas.getContext("2d");
-const waveData = { u: [], v: [], w: [], line: [], carrier: [] };
-let lastDrawTime = 0;
-
-function drawWaveform(data) {
-  const now = performance.now();
-  if (now - lastDrawTime < 16) return; // ~60fps
-  lastDrawTime = now;
-
-  const canvas = ui.waveformCanvas;
-  const width = canvas.clientWidth;
-  const height = canvas.clientHeight;
-  if (canvas.width !== width || canvas.height !== height) {
-    canvas.width = width;
-    canvas.height = height;
-  }
-
-  waveData.u.push(data.signalU);
-  waveData.v.push(data.signalV);
-  waveData.w.push(data.signalW);
-  waveData.line.push(data.lineVoltage);
-  waveData.carrier.push(data.carrier);
-
-  if (waveData.u.length > width) {
-    Object.keys(waveData).forEach((key) => waveData[key].shift());
-  }
-
-  canvasCtx.clearRect(0, 0, width, height);
-  canvasCtx.lineWidth = 2;
-
-  canvasCtx.strokeStyle = "#3b82f6"; // U (Blue)
-  drawPath(waveData.u, height / 2, height / 4);
-  canvasCtx.strokeStyle = "#22c55e"; // V (Green)
-  drawPath(waveData.v, height / 2, height / 4);
-  canvasCtx.strokeStyle = "#f59e0b"; // W (Yellow)
-  drawPath(waveData.w, height / 2, height / 4);
-  canvasCtx.strokeStyle = "#ef4444"; // I1 (Red)
-  drawPath(waveData.line, height / 2, height / 8);
-  canvasCtx.strokeStyle = "#6b7280"; // Carrier (Gray)
-  canvasCtx.lineWidth = 1;
-  drawPath(waveData.carrier, height / 2, height / 4);
-}
-
-function drawPath(data, midY, amplitude) {
-  if (data.length < 1) return;
-  canvasCtx.beginPath();
-  canvasCtx.moveTo(0, midY - data[0] * amplitude);
-  for (let i = 1; i < data.length; i++) {
-    canvasCtx.lineTo(i, midY - data[i] * amplitude);
-  }
-  canvasCtx.stroke();
-}
-
-function clearCanvas() {
-  const canvas = ui.waveformCanvas;
-  const width = canvas.clientWidth;
-  const height = canvas.clientHeight;
-  if (canvas.width !== width || canvas.height !== height) {
-    canvas.width = width;
-    canvas.height = height;
-  }
-  canvasCtx.clearRect(0, 0, width, height);
-  Object.keys(waveData).forEach((key) => (waveData[key] = []));
-}
-
-// --- アプリケーション開始 ---
-window.addEventListener("DOMContentLoaded", init);
+});
