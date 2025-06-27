@@ -137,7 +137,7 @@ class PwmProcessor extends AudioWorkletProcessor {
         outputChannel[i] = 0;
         continue;
       } else if (pattern.type === "async") {
-        const carrierIncrement = (2 * Math.PI * carrierFreq) / sampleRate;
+        const carrierIncrement = (Math.PI * carrierFreq) / sampleRate;
         asyncCarrierPhase += carrierIncrement;
         if (asyncCarrierPhase > 2 * Math.PI) {
           asyncCarrierPhase -= 2 * Math.PI;
@@ -258,7 +258,7 @@ class PwmProcessor extends AudioWorkletProcessor {
           carrierFreq = pattern.carrierFreq;
         }
 
-        const carrierIncrement = (2 * Math.PI * carrierFreq) / sampleRate;
+        const carrierIncrement = (Math.PI * carrierFreq) / sampleRate;
         const lastAsyncCarrierPhase =
           this.asyncCarrierPhase + carrierIncrement * lastSampleIndex;
         carrierWave =
