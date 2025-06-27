@@ -2,6 +2,12 @@
 .notch-light {
   box-shadow: none;
   transition: background 0.2s, box-shadow 0.2s, opacity 0.2s;
+  width: 56px;
+  height: 28px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 body {
     font-family: 'Inter', 'Noto Sans JP', sans-serif;
@@ -15,6 +21,6 @@ body {
     transform: translateY(221px); /* Start at Neutral */
 }
 
-#speedometer {
+#speedmeter {
     text-shadow: 0 0 15px rgba(107, 229, 255, 0.5);
 }

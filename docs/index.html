@@ -19,18 +19,18 @@
         </div>
 
         <div class="grid grid-cols-3 gap-8 items-center">
-            <!-- Speedmeter -->
-            <div class="col-span-1 flex flex-col items-center justify-center bg-gray-900 p-6 rounded-lg border border-gray-700">
-                <div id="speedometer" class="text-6xl font-mono font-bold text-cyan-400">0</div>
-                <div class="text-lg text-gray-400">km/h</div>
-            </div>
-
-            <!-- One-Handle Controller -->
-            <div class="col-span-2 flex items-center justify-center space-x-4">
+            <!-- One-Handle Controller (left) -->
+            <div class="col-span-2 flex items-center justify-center space-x-4 order-1">
                 <div id="handle-container" class="relative w-24 h-96 bg-gray-900 rounded-lg border-2 border-gray-700 flex flex-col">
                     <!-- Notches -->
                     <div id="all-notches" class="flex-1 flex flex-col"></div>
                 </div>
+            </div>
+
+            <!-- Speedmeter (right) -->
+            <div class="col-span-1 flex flex-col items-center justify-center bg-gray-900 p-6 rounded-lg border border-gray-700 order-2">
+                <div id="speedmeter" class="text-6xl font-mono font-bold text-cyan-400">0</div>
+                <div class="text-lg text-gray-400">km/h</div>
             </div>
         </div>
 

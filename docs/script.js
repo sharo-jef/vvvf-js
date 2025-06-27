@@ -17,7 +17,7 @@ const ui = {
   // acceleration: document.getElementById("acceleration"),
   // accelerationValue: document.getElementById("accelerationValue"),
   waveformCanvas: document.getElementById("waveformCanvas"),
-  speedometer: document.getElementById("speedometer"),
+  speedmeter: document.getElementById("speedmeter"),
   handleContainer: document.getElementById("handle-container"),
   allNotches: document.getElementById("all-notches"),
   volume: document.getElementById("volume"),
@@ -72,12 +72,6 @@ function createNotchElement(label, notchId) {
   const light = document.createElement("div");
   light.classList.add(
     "notch-light",
-    "w-8",
-    "h-8",
-    "rounded-full",
-    "flex",
-    "items-center",
-    "justify-center",
     "mr-2",
     "border-2",
     "border-gray-600",
@@ -298,7 +292,7 @@ function updateFrequency(deltaTime) {
 
 // --- UI更新 ---
 function updateUI() {
-  ui.speedometer.textContent = Math.round(state.currentSpeed);
+  ui.speedmeter.textContent = Math.round(state.currentSpeed);
   updateHandleLights();
 }
 
@@ -422,4 +416,4 @@ function clearCanvas() {
 }
 
 // --- アプリケーション開始 ---
-init();
+window.addEventListener("DOMContentLoaded", init);
