@@ -213,6 +213,7 @@ function render(state) {
   for (let i = 0; i < konvaObjects.notchRects.length; i++) {
     let fill = "#222";
     let labelColor = "#111";
+    // B段: B1~B7, EB
     if (state.handlePosition === -8 && i === 0) fill = "#ef4444"; // EB
     else if (state.handlePosition === -8 && i > 0 && i <= 7)
       fill = "#facc15"; // EB+B
@@ -222,13 +223,17 @@ function render(state) {
       i <= 7
     )
       fill = "#facc15"; // B
-    else if (state.handlePosition === 0 && i === 8) fill = "#22c55e"; // N
+    // N: ニュートラル
+    else if (state.handlePosition === 0 && i === 8) fill = "#22c55e";
+    // P段: P1~P4（B段と同じ色に）
     else if (
       state.handlePosition > 0 &&
       i >= 8 &&
       i <= 8 + state.handlePosition
     )
-      fill = "#38bdf8"; // P
+      fill = "#facc15";
+    // N消灯: P段のときはNを消灯
+    if (state.handlePosition > 0 && i === 8) fill = "#222";
     konvaObjects.notchRects[i].fill(fill);
     konvaObjects.notchLabels[i].fill(labelColor);
   }
