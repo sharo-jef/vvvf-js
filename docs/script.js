@@ -238,18 +238,13 @@ let audioCtx = null,
   pwmNode = null,
   gainNode = null;
 async function setupAudio() {
-  console.log("[DEBUG] setupAudio called");
   if (audioCtx) {
-    console.log("[DEBUG] setupAudio: already initialized");
     return;
   }
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  console.log("[DEBUG] AudioContext created");
   try {
     await audioCtx.audioWorklet.addModule("./processor.js");
-    console.log("[DEBUG] AudioWorklet module loaded");
   } catch (e) {
-    console.error("[DEBUG] Failed to load AudioWorklet module", e);
     return;
   }
   try {
@@ -258,24 +253,14 @@ async function setupAudio() {
         signalFreq: 0,
       },
     });
-    console.log("[DEBUG] AudioWorkletNode created");
   } catch (e) {
-    console.error("[DEBUG] Failed to create AudioWorkletNode", e);
     return;
   }
 
   // Listen for messages from the processor
   pwmNode.port.onmessage = (event) => {
-    console.log("[DEBUG][processor->main] Message received:", event.data);
     if (event.data.type === "ready") {
-      // デバッグ: MODULATION_PATTERNS送信前
-      console.log("[DEBUG] sending MODULATION_PATTERNS", MODULATION_PATTERNS);
-      // Processor is ready, now send the modulation patterns
       pwmNode.port.postMessage({ modulationPatterns: MODULATION_PATTERNS });
-      // デバッグ: MODULATION_PATTERNS送信直後
-      setTimeout(() => {
-        console.log("[DEBUG] MODULATION_PATTERNS sent");
-      }, 0);
     } else if (event.data.type === "waveform" && ui.modulationInfo) {
       const pattern = event.data.data.pattern;
       if (pattern) {
@@ -291,9 +276,6 @@ async function setupAudio() {
       } else {
         ui.modulationInfo.textContent = "変調方式: -";
       }
-    } else if (event.data.type === "debug") {
-      // AudioWorkletProcessorからのデバッグ出力
-      console.log("[AudioWorklet DEBUG]", event.data.message, event.data);
     }
   };
 

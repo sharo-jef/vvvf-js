@@ -1,6 +1,3 @@
-// DEBUG: Top-level processor.js loaded
-console.log("[DEBUG] processor.js script loaded");
-
 class PwmProcessor extends AudioWorkletProcessor {
   static get parameterDescriptors() {
     return [
@@ -15,9 +12,8 @@ class PwmProcessor extends AudioWorkletProcessor {
   }
 
   constructor() {
-    console.log("[DEBUG] PwmProcessor constructor: start");
     super();
-    console.log("[DEBUG] PwmProcessor constructor: after super()");
+    // ...
     this.signalPhase = 0;
     this.asyncCarrierPhase = 0; // For async mode
     this.lastWaveformUpdateTime = 0;
@@ -27,14 +23,6 @@ class PwmProcessor extends AudioWorkletProcessor {
     this.modulationPatterns = []; // To be loaded from JSON
 
     this.port.onmessage = (event) => {
-      // DEBUG: Log all incoming messages
-      try {
-        this.port.postMessage({
-          type: "debug",
-          message: "[processor] port.onmessage",
-          event: event.data,
-        });
-      } catch (e) {}
       if (event.data && typeof event.data === "object") {
         if ("handlePosition" in event.data) {
           this.handlePosition = event.data.handlePosition;
@@ -44,24 +32,13 @@ class PwmProcessor extends AudioWorkletProcessor {
         }
         if ("modulationPatterns" in event.data) {
           this.modulationPatterns = event.data.modulationPatterns;
-          // デバッグ: パターン受信時に内容を通知（即時flushのためsetTimeoutで遅延）
-          setTimeout(() => {
-            this.port.postMessage({
-              type: "debug",
-              message: "modulationPatterns received",
-              patterns: this.modulationPatterns,
-            });
-          }, 0);
         }
       }
     };
 
     try {
       this.port.postMessage({ type: "ready" });
-      console.log("[DEBUG] PwmProcessor constructor: posted ready");
-    } catch (e) {
-      console.log("[DEBUG] PwmProcessor constructor: failed to post ready", e);
-    }
+    } catch (e) {}
   }
 
   _getModulationPattern(signalFreq) {
@@ -78,33 +55,8 @@ class PwmProcessor extends AudioWorkletProcessor {
   }
 
   process(inputs, outputs, parameters) {
-    // デバッグ: 速度0のときはデバッグ出力もしない
     if (this.speed === 0) {
       return true;
-    }
-    // デバッグ: 最初の1回だけパターンを通知
-    if (
-      !this._debugPatternPrinted &&
-      this.modulationPatterns &&
-      this.modulationPatterns.length > 0
-    ) {
-      this.port.postMessage({
-        type: "debug",
-        message: "modulationPatterns in process (once)",
-        patterns: this.modulationPatterns,
-      });
-      this._debugPatternPrinted = true;
-    }
-    // Always post a debug message on first process call to confirm processor is running
-    if (!this._debugProcessPosted) {
-      this.port.postMessage({
-        type: "debug",
-        message: "process() called: processor is running",
-        modulationPatternsLength: this.modulationPatterns
-          ? this.modulationPatterns.length
-          : 0,
-      });
-      this._debugProcessPosted = true;
     }
     const output = outputs[0];
     const outputChannel = output[0];
@@ -292,22 +244,5 @@ class PwmProcessor extends AudioWorkletProcessor {
 }
 
 try {
-  console.log("[DEBUG] Registering pwm-processor");
   registerProcessor("pwm-processor", PwmProcessor);
-  console.log("[DEBUG] registerProcessor succeeded");
-} catch (e) {
-  // Try to post error to main thread if possible
-  try {
-    if (
-      typeof AudioWorkletGlobalScope !== "undefined" &&
-      AudioWorkletGlobalScope.port
-    ) {
-      AudioWorkletGlobalScope.port.postMessage({
-        type: "debug",
-        message: "registerProcessor failed",
-        error: e,
-      });
-    }
-  } catch (ee) {}
-  console.log("[DEBUG] registerProcessor failed", e);
-}
+} catch (e) {}
