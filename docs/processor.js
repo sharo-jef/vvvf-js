@@ -97,15 +97,19 @@ class PwmProcessor extends AudioWorkletProcessor {
         if (typeof pattern.carrierFreq === "object") {
           // 線形補間
           const signalFreqRange = pattern.to - pattern.from;
-          const carrierFreqRange =
-            pattern.carrierFreq.to - pattern.carrierFreq.from;
           const signalFreqOffset = currentSignalFreq - pattern.from;
+          const ratio =
+            signalFreqRange <= 0 ? 0 : signalFreqOffset / signalFreqRange;
 
-          if (signalFreqRange <= 0) {
-            carrierFreq = pattern.carrierFreq.from;
+          const c_from = pattern.carrierFreq.from;
+          const c_to = pattern.carrierFreq.to;
+
+          if (this.handlePosition < 0) {
+            // 減速時: S_to -> C_from, S_from -> C_to
+            carrierFreq = c_from * ratio + c_to * (1 - ratio);
           } else {
-            const ratio = signalFreqOffset / signalFreqRange;
-            carrierFreq = pattern.carrierFreq.from + carrierFreqRange * ratio;
+            // 加速時: S_from -> C_from, S_to -> C_to
+            carrierFreq = c_from * (1 - ratio) + c_to * ratio;
           }
         } else if (typeof pattern.carrierFreqRatio === "number") {
           carrierFreq = currentSignalFreq * pattern.carrierFreqRatio;
@@ -236,15 +240,17 @@ class PwmProcessor extends AudioWorkletProcessor {
         let carrierFreq;
         if (typeof pattern.carrierFreq === "object") {
           const signalFreqRange = pattern.to - pattern.from;
-          const carrierFreqRange =
-            pattern.carrierFreq.to - pattern.carrierFreq.from;
           const signalFreqOffset = currentSignalFreq - pattern.from;
+          const ratio =
+            signalFreqRange <= 0 ? 0 : signalFreqOffset / signalFreqRange;
 
-          if (signalFreqRange <= 0) {
-            carrierFreq = pattern.carrierFreq.from;
+          const c_from = pattern.carrierFreq.from;
+          const c_to = pattern.carrierFreq.to;
+
+          if (this.handlePosition < 0) {
+            carrierFreq = c_from * ratio + c_to * (1 - ratio);
           } else {
-            const ratio = signalFreqOffset / signalFreqRange;
-            carrierFreq = pattern.carrierFreq.from + carrierFreqRange * ratio;
+            carrierFreq = c_from * (1 - ratio) + c_to * ratio;
           }
         } else if (pattern.carrierFreqRatio) {
           carrierFreq = currentSignalFreq * pattern.carrierFreqRatio;
