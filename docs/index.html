@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VVVFサウンドシミュレータ (ワンハンドル版)</title>
+    <title>VVVFサウンドシミュレータ</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/konva@9.2.2/konva.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -34,11 +34,6 @@
         
         <!-- Unity風サイドバーUI -->
         <div id="unity-sidebar" class="fixed top-0 right-0 h-full w-[220px] bg-[#23272a] border-l border-[#444] flex flex-col items-center py-8 px-4 z-[1000] shadow-2xl">
-          <!-- シミュレーション開始ボタン -->
-          <button id="startButton" class="unity-btn w-full mb-8">
-            <span class="unity-btn-icon mr-2">▶</span>
-            <span class="unity-btn-label">シミュレーション開始</span>
-          </button>
           <div class="w-full mb-8">
             <div class="text-xs font-bold text-[#aaa] tracking-widest mb-2 pl-1">CARRIER FREQ.</div>
             <div class="flex items-center w-full">
@@ -63,130 +58,13 @@
               <span id="volumeValue" class="text-xs text-[#7fffd4] font-mono">50%</span>
             </div>
           </div>
+          <!-- サイドバー下部にリセット -->
+          <div id="sidebar-reset-container" class="w-full flex justify-center items-end mt-auto mb-2">
+            <span id="resetButton" class="cursor-pointer text-red-500 font-bold text-sm hover:underline hover:text-red-400 transition-all duration-150 select-none">Reset</span>
+          </div>
         </div>
     </div>
 
     <script src="script.js"></script>
-    <script>
-      // 搬送波周波数の数値直接入力
-      const carrierFreqValue = document.getElementById('carrierFreqValue');
-      const carrierFreqSlider = document.getElementById('carrierFreq');
-      carrierFreqValue.style.cursor = 'pointer';
-      carrierFreqValue.title = 'クリックして直接入力';
-      function setCarrierFreqValueDisplay() {
-        const v = carrierFreqSlider.value;
-        carrierFreqValue.innerHTML = `${v} <span style="font-size:13px;color:#4fc3f7;">Hz</span>`;
-      }
-      setCarrierFreqValueDisplay();
-      carrierFreqSlider.addEventListener('input', setCarrierFreqValueDisplay);
-      carrierFreqValue.addEventListener('click', function () {
-        const min = Number(carrierFreqSlider.min);
-        const max = Number(carrierFreqSlider.max);
-        const current = carrierFreqSlider.value;
-        const wrapper = document.createElement('span');
-        wrapper.style.display = 'inline-flex';
-        wrapper.style.alignItems = 'center';
-        const input = document.createElement('input');
-        input.type = 'number';
-        input.value = current;
-        input.min = min;
-        input.max = max;
-        input.style.width = '48px';
-        input.style.fontSize = '13px';
-        input.style.textAlign = 'right';
-        input.style.background = '#23272a';
-        input.style.color = '#4fc3f7';
-        input.style.border = '1px solid #4fc3f7';
-        input.style.borderRadius = '4px';
-        input.style.outline = 'none';
-        input.style.height = '22px';
-        input.style.overflow = 'hidden';
-        input.style.marginRight = '2px';
-        input.style.boxSizing = 'border-box';
-        input.addEventListener('keydown', function(e) {
-          if (e.key === 'Enter') input.blur();
-        });
-        input.addEventListener('blur', function () {
-          let v = Math.round(Number(input.value));
-          if (isNaN(v)) v = current;
-          if (v < min) v = min;
-          if (v > max) v = max;
-          carrierFreqSlider.value = v;
-          carrierFreqSlider.dispatchEvent(new Event('input'));
-          setCarrierFreqValueDisplay();
-          wrapper.replaceWith(carrierFreqValue);
-        });
-        const unit = document.createElement('span');
-        unit.textContent = 'Hz';
-        unit.style.color = '#4fc3f7';
-        unit.style.fontSize = '13px';
-        unit.style.marginLeft = '2px';
-        wrapper.appendChild(input);
-        wrapper.appendChild(unit);
-        carrierFreqValue.parentNode.replaceChild(wrapper, carrierFreqValue);
-        input.focus();
-        input.select();
-      });
-      // 音量の数値直接入力
-      const volumeValue = document.getElementById('volumeValue');
-      const volumeSlider = document.getElementById('volume');
-      volumeValue.style.cursor = 'pointer';
-      volumeValue.title = 'クリックして直接入力';
-      function setVolumeValueDisplay() {
-        const v = volumeSlider.value;
-        volumeValue.innerHTML = `${Math.round(v * 100)}<span style="font-size:13px;color:#7fffd4;">%</span>`;
-      }
-      setVolumeValueDisplay();
-      volumeSlider.addEventListener('input', setVolumeValueDisplay);
-      volumeValue.addEventListener('click', function () {
-        const min = Number(volumeSlider.min);
-        const max = Number(volumeSlider.max);
-        const current = Number(volumeSlider.value);
-        const wrapper = document.createElement('span');
-        wrapper.style.display = 'inline-flex';
-        wrapper.style.alignItems = 'center';
-        const input = document.createElement('input');
-        input.type = 'number';
-        input.value = current;
-        input.min = min;
-        input.max = max;
-        input.step = '0.01';
-        input.style.width = '38px';
-        input.style.fontSize = '13px';
-        input.style.textAlign = 'right';
-        input.style.background = '#23272a';
-        input.style.color = '#7fffd4';
-        input.style.border = '1px solid #7fffd4';
-        input.style.borderRadius = '4px';
-        input.style.outline = 'none';
-        input.style.height = '22px';
-        input.style.overflow = 'hidden';
-        input.style.marginRight = '2px';
-        input.style.boxSizing = 'border-box';
-        input.addEventListener('keydown', function(e) {
-          if (e.key === 'Enter') input.blur();
-        });
-        input.addEventListener('blur', function () {
-          let v = Number(input.value);
-          if (isNaN(v)) v = current;
-          if (v < min) v = min;
-          if (v > max) v = max;
-          volumeSlider.value = v;
-          volumeSlider.dispatchEvent(new Event('input'));
-          setVolumeValueDisplay();
-          wrapper.replaceWith(volumeValue);
-        });
-        const unit = document.createElement('span');
-        unit.textContent = '%';
-        unit.style.color = '#7fffd4';
-        unit.style.fontSize = '13px';
-        unit.style.marginLeft = '2px';
-        wrapper.appendChild(input);
-        wrapper.appendChild(unit);
-        volumeValue.parentNode.replaceChild(wrapper, volumeValue);
-        input.focus();
-        input.select();
-      });
-    </script>
 </body>
 </html>

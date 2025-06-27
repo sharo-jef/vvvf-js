@@ -26,8 +26,8 @@ const state = {
   handlePosition: 0, // -8 (EB) to 4 (P4)
   currentSpeed: 0,
   isSimulating: false,
-  carrierFreq: ui.carrierFreq ? Number(ui.carrierFreq.value) : 2000,
-  volume: ui.volume ? Number(ui.volume.value) * 0.01 : 0.5,
+  carrierFreq: 400,
+  volume: 0.5,
 };
 
 // Konva.js UI描画
@@ -177,26 +177,41 @@ function render(state) {
     // キー操作
     window.addEventListener("keydown", (e) => {
       if (!state.isSimulating) return;
+      let changed = false;
       switch (e.key.toUpperCase()) {
         case "Z":
-          if (state.handlePosition < 4) state.handlePosition++;
+          if (state.handlePosition < 4) {
+            state.handlePosition++;
+            changed = true;
+          }
           break;
         case "Q":
-          if (state.handlePosition > -7) state.handlePosition--;
+          if (state.handlePosition > -7) {
+            state.handlePosition--;
+            changed = true;
+          }
           break;
         case "A":
           // N(0)に近づく方向に一段動かす
           if (state.handlePosition > 0) {
             state.handlePosition--;
+            changed = true;
           } else if (state.handlePosition < 0) {
             state.handlePosition++;
+            changed = true;
           }
           break;
         case "1":
-          state.handlePosition = -8;
+          if (state.handlePosition !== -8) {
+            state.handlePosition = -8;
+            changed = true;
+          }
           break;
       }
-      render(state);
+      if (changed) {
+        render(state);
+        updateAudio();
+      }
     });
   }
   // ノッチの点灯状態
@@ -230,10 +245,17 @@ function render(state) {
   // HTMLボタンのラベル・色も状態で切り替え
   const btn = document.getElementById("startButton");
   if (btn) {
-    btn.textContent = state.isSimulating
-      ? "シミュレーション停止"
-      : "シミュレーション開始";
-    btn.style.background = state.isSimulating ? "#dc2626" : "#2563eb";
+    const icon = btn.querySelector(".unity-btn-icon");
+    const label = btn.querySelector(".unity-btn-label");
+    if (state.isSimulating) {
+      btn.classList.add("stop");
+      if (icon) icon.textContent = "■";
+      if (label) label.textContent = "シミュレーション停止";
+    } else {
+      btn.classList.remove("stop");
+      if (icon) icon.textContent = "▶";
+      if (label) label.textContent = "シミュレーション開始";
+    }
   }
   konvaObjects.layer.draw();
 }
@@ -284,21 +306,28 @@ function stopAudio() {
 }
 
 // 疎結合なシミュレーションループ
+let simulationLoopStarted = false;
 function startSimulationLoop() {
+  if (simulationLoopStarted) return;
+  simulationLoopStarted = true;
   let lastTime = performance.now();
   function loop(now) {
     if (!state.isSimulating) {
       stopAudio();
+      simulationLoopStarted = false;
       return;
     }
     const dt = (now - lastTime) / 1000;
     lastTime = now;
     // 速度計算例（P段で加速、B段で減速、Nで自然減速）
-    if (state.handlePosition > 0)
+    if (state.handlePosition > 0) {
       state.currentSpeed += state.handlePosition * 0.5 * dt;
-    else if (state.handlePosition === 0) state.currentSpeed -= 0.3 * dt;
-    else if (state.handlePosition < 0)
+    } else if (state.handlePosition === 0) {
+      state.currentSpeed -= 0.3 * dt;
+    } else if (state.handlePosition < 0) {
       state.currentSpeed -= Math.abs(state.handlePosition) * 0.8 * dt;
+    }
+    // 速度の下限・上限
     if (state.currentSpeed < 0) state.currentSpeed = 0;
     if (state.currentSpeed > 120) state.currentSpeed = 120;
     render(state);
@@ -310,36 +339,167 @@ function startSimulationLoop() {
 
 // 既存のHTMLボタンでシミュレーション開始/停止
 window.addEventListener("DOMContentLoaded", () => {
-  // sim-nav-panelは廃止。Unity風サイドバー（HTML側）に機能を移譲。
-  // スタートボタンの見た目をUnityサイドバー用に調整
-  const startBtn = document.getElementById("startButton");
-  if (startBtn) {
-    startBtn.style.width = "100%";
-    startBtn.style.marginTop = "32px";
-    startBtn.style.marginBottom = "0px";
-    startBtn.style.fontSize = "18px";
-    startBtn.style.borderRadius = "8px";
-    startBtn.style.background = startBtn.classList.contains("bg-red-600")
-      ? "#dc2626"
-      : "#2563eb";
-  }
-  render(state);
-  if (startBtn) {
-    startBtn.addEventListener("click", async () => {
-      state.isSimulating = !state.isSimulating;
-      startBtn.textContent = state.isSimulating
-        ? "シミュレーション停止"
-        : "シミュレーション開始";
-      startBtn.classList.toggle("bg-blue-600", !state.isSimulating);
-      startBtn.classList.toggle("bg-red-600", state.isSimulating);
-      render(state);
-      if (state.isSimulating) {
-        await setupAudio();
-        if (audioCtx.state === "suspended") await audioCtx.resume();
-        startSimulationLoop();
-      } else {
-        stopAudio();
-      }
+  // --- UIロジック: 搬送波周波数の数値直接入力 ---
+  const carrierFreqValue = document.getElementById("carrierFreqValue");
+  const carrierFreqSlider = document.getElementById("carrierFreq");
+  if (carrierFreqValue && carrierFreqSlider) {
+    carrierFreqValue.style.cursor = "pointer";
+    carrierFreqValue.title = "クリックして直接入力";
+    function setCarrierFreqValueDisplay() {
+      const v = carrierFreqSlider.value;
+      carrierFreqValue.innerHTML = `${v} <span style="font-size:13px;color:#4fc3f7;">Hz</span>`;
+    }
+    setCarrierFreqValueDisplay();
+    carrierFreqSlider.addEventListener("input", setCarrierFreqValueDisplay);
+    carrierFreqValue.addEventListener("click", function () {
+      const min = Number(carrierFreqSlider.min);
+      const max = Number(carrierFreqSlider.max);
+      const current = carrierFreqSlider.value;
+      const wrapper = document.createElement("span");
+      wrapper.style.display = "inline-flex";
+      wrapper.style.alignItems = "center";
+      const input = document.createElement("input");
+      input.type = "number";
+      input.value = current;
+      input.min = min;
+      input.max = max;
+      input.style.width = "48px";
+      input.style.fontSize = "13px";
+      input.style.textAlign = "right";
+      input.style.background = "#23272a";
+      input.style.color = "#4fc3f7";
+      input.style.border = "1px solid #4fc3f7";
+      input.style.borderRadius = "4px";
+      input.style.outline = "none";
+      input.style.height = "22px";
+      input.style.overflow = "hidden";
+      input.style.marginRight = "2px";
+      input.style.boxSizing = "border-box";
+      input.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") input.blur();
+      });
+      input.addEventListener("blur", function () {
+        let v = Math.round(Number(input.value));
+        if (isNaN(v)) v = current;
+        if (v < min) v = min;
+        if (v > max) v = max;
+        carrierFreqSlider.value = v;
+        carrierFreqSlider.dispatchEvent(new Event("input"));
+        setCarrierFreqValueDisplay();
+        wrapper.replaceWith(carrierFreqValue);
+      });
+      const unit = document.createElement("span");
+      unit.textContent = "Hz";
+      unit.style.color = "#4fc3f7";
+      unit.style.fontSize = "13px";
+      unit.style.marginLeft = "2px";
+      wrapper.appendChild(input);
+      wrapper.appendChild(unit);
+      carrierFreqValue.parentNode.replaceChild(wrapper, carrierFreqValue);
+      input.focus();
+      input.select();
     });
   }
+
+  // --- UIロジック: 音量の数値直接入力 ---
+  const volumeValue = document.getElementById("volumeValue");
+  const volumeSlider = document.getElementById("volume");
+  if (volumeValue && volumeSlider) {
+    volumeValue.style.cursor = "pointer";
+    volumeValue.title = "クリックして直接入力";
+    function setVolumeValueDisplay() {
+      const v = volumeSlider.value;
+      volumeValue.innerHTML = `${Math.round(
+        v * 100
+      )}<span style="font-size:13px;color:#7fffd4;">%</span>`;
+    }
+    setVolumeValueDisplay();
+    volumeSlider.addEventListener("input", setVolumeValueDisplay);
+    volumeValue.addEventListener("click", function () {
+      const min = Number(volumeSlider.min);
+      const max = Number(volumeSlider.max);
+      const current = Number(volumeSlider.value);
+      const wrapper = document.createElement("span");
+      wrapper.style.display = "inline-flex";
+      wrapper.style.alignItems = "center";
+      const input = document.createElement("input");
+      input.type = "number";
+      input.value = current;
+      input.min = min;
+      input.max = max;
+      input.step = "0.01";
+      input.style.width = "38px";
+      input.style.fontSize = "13px";
+      input.style.textAlign = "right";
+      input.style.background = "#23272a";
+      input.style.color = "#7fffd4";
+      input.style.border = "1px solid #7fffd4";
+      input.style.borderRadius = "4px";
+      input.style.outline = "none";
+      input.style.height = "22px";
+      input.style.overflow = "hidden";
+      input.style.marginRight = "2px";
+      input.style.boxSizing = "border-box";
+      input.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") input.blur();
+      });
+      input.addEventListener("blur", function () {
+        let v = Number(input.value);
+        if (isNaN(v)) v = current;
+        if (v < min) v = min;
+        if (v > max) v = max;
+        volumeSlider.value = v;
+        volumeSlider.dispatchEvent(new Event("input"));
+        setVolumeValueDisplay();
+        wrapper.replaceWith(volumeValue);
+      });
+      const unit = document.createElement("span");
+      unit.textContent = "%";
+      unit.style.color = "#7fffd4";
+      unit.style.fontSize = "13px";
+      unit.style.marginLeft = "2px";
+      wrapper.appendChild(input);
+      wrapper.appendChild(unit);
+      volumeValue.parentNode.replaceChild(wrapper, volumeValue);
+      input.focus();
+      input.select();
+    });
+  }
+
+  // --- UIロジック: Reset（赤テキスト） ---
+  const resetButton = document.getElementById("resetButton");
+  if (resetButton) {
+    resetButton.addEventListener("click", function () {
+      // スライダー・値を初期値に
+      if (carrierFreqSlider) carrierFreqSlider.value = 400;
+      if (volumeSlider) volumeSlider.value = 50;
+      // 値表示も更新
+      if (typeof setCarrierFreqValueDisplay === "function")
+        setCarrierFreqValueDisplay();
+      if (typeof setVolumeValueDisplay === "function") setVolumeValueDisplay();
+      // Konva/状態も初期化
+      state.handlePosition = 0;
+      state.currentSpeed = 0;
+      state.isSimulating = true;
+      state.carrierFreq = 400;
+      state.volume = 0.5;
+      if (typeof render === "function") render(state);
+      updateAudio();
+    });
+  }
+
+  // --- シミュレーション自動開始 ---
+  (async function autoStartSimulation() {
+    state.isSimulating = true;
+    state.handlePosition = 0;
+    state.currentSpeed = 0;
+    state.carrierFreq = 400;
+    state.volume = 0.5;
+    render(state);
+    await setupAudio();
+    if (audioCtx && audioCtx.state === "suspended") await audioCtx.resume();
+    simulationLoopStarted = false;
+    startSimulationLoop();
+    updateAudio();
+  })();
 });
