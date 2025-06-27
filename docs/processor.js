@@ -24,6 +24,18 @@ class PwmProcessor extends AudioWorkletProcessor {
     this.carrierPhase = 0;
     this.lastWaveformUpdateTime = 0;
     this.R = 1; // 抵抗
+    this.handlePosition = "N";
+    this.speed = 0;
+    this.port.onmessage = (event) => {
+      if (event.data && typeof event.data === "object") {
+        if ("handlePosition" in event.data) {
+          this.handlePosition = event.data.handlePosition;
+        }
+        if ("speed" in event.data) {
+          this.speed = event.data.speed;
+        }
+      }
+    };
   }
 
   process(inputs, outputs, parameters) {
@@ -41,19 +53,27 @@ class PwmProcessor extends AudioWorkletProcessor {
     const carrierIncrement = (2 * Math.PI * carrierFreq) / sampleRate;
 
     for (let i = 0; i < outputChannel.length; i++) {
-      const currentSignalFreq = signalFreq.length > 1 ? signalFreq[i] : signalFreq[0];
+      // ハンドル位置がNまたは速度0kmのときは音を出さず、位相も進めない
+      if (this.handlePosition === "N" || this.speed === 0) {
+        outputChannel[i] = 0;
+        continue;
+      }
+      // ...通常のPWM生成処理...
+      const currentSignalFreq =
+        signalFreq.length > 1 ? signalFreq[i] : signalFreq[0];
       const signalIncrement = (2 * Math.PI * currentSignalFreq) / sampleRate;
 
       this.carrierPhase += carrierIncrement;
       if (this.carrierPhase > 2 * Math.PI) this.carrierPhase -= 2 * Math.PI;
-      const carrierWave = (2 / Math.PI) * Math.asin(Math.sin(this.carrierPhase));
+      const carrierWave =
+        (2 / Math.PI) * Math.asin(Math.sin(this.carrierPhase));
 
       this.signalPhase += signalIncrement;
       if (this.signalPhase > 2 * Math.PI) this.signalPhase -= 2 * Math.PI;
 
       const signalU = Math.sin(this.signalPhase);
-      const signalV = Math.sin(this.signalPhase - (2 * Math.PI / 3));
-      const signalW = Math.sin(this.signalPhase - (4 * Math.PI / 3));
+      const signalV = Math.sin(this.signalPhase - (2 * Math.PI) / 3);
+      const signalW = Math.sin(this.signalPhase - (4 * Math.PI) / 3);
 
       const pwmU = signalU > carrierWave ? 1 : -1;
       const pwmV = signalV > carrierWave ? 1 : -1;
@@ -64,15 +84,36 @@ class PwmProcessor extends AudioWorkletProcessor {
     }
 
     if (globalThis.currentTime - this.lastWaveformUpdateTime > 0.016) {
+      // ハンドル位置がNまたは速度0kmのときは無音データを送る
+      if (this.handlePosition === "N" || this.speed === 0) {
+        this.port.postMessage({
+          type: "waveform",
+          data: {
+            signalU: 0,
+            signalV: 0,
+            signalW: 0,
+            lineVoltage: 0,
+            carrier: 0,
+          },
+        });
+        this.lastWaveformUpdateTime = globalThis.currentTime;
+        return true;
+      }
       const lastSampleIndex = outputChannel.length - 1;
-      const currentSignalFreq = signalFreq.length > 1 ? signalFreq[lastSampleIndex] : signalFreq[0];
+      const currentSignalFreq =
+        signalFreq.length > 1 ? signalFreq[lastSampleIndex] : signalFreq[0];
       const signalIncrement = (2 * Math.PI * currentSignalFreq) / sampleRate;
-      const lastSignalPhase = this.signalPhase + signalIncrement * lastSampleIndex;
+      const lastSignalPhase =
+        this.signalPhase + signalIncrement * lastSampleIndex;
 
       const signalU = Math.sin(lastSignalPhase);
-      const signalV = Math.sin(lastSignalPhase - (2 * Math.PI / 3));
-      const signalW = Math.sin(lastSignalPhase - (4 * Math.PI / 3));
-      const carrierWave = (2 / Math.PI) * Math.asin(Math.sin(this.carrierPhase + carrierIncrement * lastSampleIndex));
+      const signalV = Math.sin(lastSignalPhase - (2 * Math.PI) / 3);
+      const signalW = Math.sin(lastSignalPhase - (4 * Math.PI) / 3);
+      const carrierWave =
+        (2 / Math.PI) *
+        Math.asin(
+          Math.sin(this.carrierPhase + carrierIncrement * lastSampleIndex)
+        );
       const pwmU = signalU > carrierWave ? 1 : -1;
       const pwmV = signalV > carrierWave ? 1 : -1;
       const pwmW = signalW > carrierWave ? 1 : -1;

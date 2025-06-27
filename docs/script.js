@@ -19,6 +19,8 @@ document.addEventListener("DOMContentLoaded", () => {
     handleContainer: document.getElementById("handle-container"),
     handleIndicator: document.getElementById("handle-indicator"),
     allNotches: document.getElementById("all-notches"),
+    volume: document.getElementById("volume"),
+    volumeValue: document.getElementById("volumeValue"),
   };
 
   // --- アプリケーションの状態 ---
@@ -114,7 +116,11 @@ document.addEventListener("DOMContentLoaded", () => {
           signalFreq: state.currentFreq,
         },
       });
-      state.pwmNode.connect(state.audioCtx.destination);
+      // GainNodeを作成し、音量調整用に接続
+      state.gainNode = state.audioCtx.createGain();
+      state.gainNode.gain.value = 1.0; // デフォルト音量
+      state.pwmNode.connect(state.gainNode);
+      state.gainNode.connect(state.audioCtx.destination);
       state.pwmNode.port.onmessage = (event) => {
         if (event.data.type === "waveform") {
           drawWaveform(event.data.data);
@@ -144,9 +150,9 @@ document.addEventListener("DOMContentLoaded", () => {
     if (state.audioCtx.state === "suspended") {
       await state.audioCtx.resume();
     }
-    // AudioWorkletNodeのパラメータを初期値でセット（Nなら0、そうでなければstate.currentFreq）
+    // AudioWorkletNodeのパラメータを初期値でセット（Nまたは停止中なら0）
     let freqToSend = state.currentFreq;
-    if (state.handlePosition === 0) {
+    if (state.handlePosition === 0 || state.currentSpeed === 0) {
       freqToSend = 0;
     }
     if (state.pwmNode) {
@@ -190,7 +196,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Neutralまたは速度0のときは必ず無音にする
     let freqToSend = state.currentFreq;
-    if (state.handlePosition === 0 || state.currentSpeed === 0) {
+    const isSilent = state.handlePosition === 0 || state.currentSpeed === 0;
+    if (isSilent) {
       freqToSend = 0;
     }
     if (state.pwmNode) {
@@ -198,6 +205,15 @@ document.addEventListener("DOMContentLoaded", () => {
       if (param) {
         param.setValueAtTime(freqToSend, state.audioCtx.currentTime);
       }
+      // handlePositionとspeedをAudioWorkletに送信
+      state.pwmNode.port.postMessage({
+        handlePosition: state.handlePosition === 0 ? "N" : state.handlePosition,
+        speed: state.currentSpeed,
+      });
+    }
+    // Nまたは0kmのときは音量0、それ以外はスライダー値
+    if (state.gainNode) {
+      state.gainNode.gain.value = isSilent ? 0 : parseFloat(ui.volume.value);
     }
 
     // UIの更新
@@ -252,6 +268,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // --- イベントリスナー ---
   function addEventListeners() {
+    // 音量スライダー
+    ui.volume.addEventListener("input", (e) => {
+      const val = parseFloat(e.target.value);
+      if (state.gainNode) {
+        state.gainNode.gain.value = val;
+      }
+      ui.volumeValue.textContent = Math.round(val * 100) + "%";
+    });
     ui.startButton.addEventListener("click", toggleSimulation);
 
     ui.carrierFreq.addEventListener("input", (e) => {
