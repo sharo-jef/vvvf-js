@@ -3,7 +3,7 @@
 // =================================================================================
 
 const trainSpecs = {
-  "Default": {
+  Default: {
     // 物理パラメータ
     physical: {
       POWER_LEVELS: 4,
@@ -39,7 +39,39 @@ const trainSpecs = {
     },
   },
   // 他の車種データをここに追加できます
-  // "Train B": { ... }
+  CustomTrain: {
+    physical: {
+      POWER_LEVELS: 5,
+      BRAKE_LEVELS: 8,
+      MAX_SPEED: 120,
+      MAX_FREQ: 120,
+      DECEL_RATE_COAST: 0.3,
+      DECEL_RATE_MAX: 4.2,
+      DECEL_RATE_EB: 4.5,
+      ACCEL_RATE_MAX: 3.0,
+    },
+    modulationPatterns: {
+      accel: [
+        { from: 0, to: 3, type: "async", carrierFreq: 198 },
+        { from: 3, to: 36, type: "async", carrierFreq: { from: 198, to: 880 } },
+        { from: 36, to: 39, type: "async", carrierFreq: 880 },
+        { from: 39, to: 52, type: "sync", pulse: 3 },
+        { from: 52, to: "max", type: "sync", pulse: 1 },
+      ],
+      decel: [
+        { from: 58, to: "max", type: "sync", pulse: 1 },
+        { from: 50, to: 58, type: "sync", pulse: 3 },
+        { from: 40, to: 50, type: "async", carrierFreq: 1000 },
+        {
+          from: 4,
+          to: 40,
+          type: "async",
+          carrierFreq: { from: 1000, to: 169 },
+        },
+        { from: 0, to: 4, type: "async", carrierFreq: 169 },
+      ],
+    },
+  },
 };
 
 const globalConfig = {
@@ -58,11 +90,6 @@ const globalConfig = {
   ui: {
     stage: { width: 600, height: 400 },
     notch: {
-      labels: [
-        "EB", "B7", "B6", "B5", "B4", "B3", "B2", "B1",
-        "N",
-        "P1", "P2", "P3", "P4",
-      ],
       y_start: 40,
       y_step: 28,
       base_x: 70,
@@ -82,8 +109,22 @@ const globalConfig = {
       },
     },
     speedometer: {
-      value: { x: 300, y: 100, width: 220, height: 80, fontSize: 72, fill: "#22d3ee" },
-      label: { x: 300, y: 180, width: 220, height: 40, fontSize: 28, fill: "#aaa" },
+      value: {
+        x: 300,
+        y: 100,
+        width: 220,
+        height: 80,
+        fontSize: 72,
+        fill: "#22d3ee",
+      },
+      label: {
+        x: 300,
+        y: 180,
+        width: 220,
+        height: 40,
+        fontSize: 28,
+        fill: "#aaa",
+      },
     },
   },
 };

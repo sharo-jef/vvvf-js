@@ -94,13 +94,26 @@ class PwmProcessor extends AudioWorkletProcessor {
       const pattern = this._getModulationPattern(currentSignalFreq);
       let carrierFreq = null;
       if (pattern.type === "async") {
-        if (typeof pattern.carrierFreqRatio === "number") {
+        if (typeof pattern.carrierFreq === "object") {
+          // 線形補間
+          const signalFreqRange = pattern.to - pattern.from;
+          const carrierFreqRange =
+            pattern.carrierFreq.to - pattern.carrierFreq.from;
+          const signalFreqOffset = currentSignalFreq - pattern.from;
+
+          if (signalFreqRange <= 0) {
+            carrierFreq = pattern.carrierFreq.from;
+          } else {
+            const ratio = signalFreqOffset / signalFreqRange;
+            carrierFreq = pattern.carrierFreq.from + carrierFreqRange * ratio;
+          }
+        } else if (typeof pattern.carrierFreqRatio === "number") {
           carrierFreq = currentSignalFreq * pattern.carrierFreqRatio;
         } else if (typeof pattern.carrierFreq === "number") {
           carrierFreq = pattern.carrierFreq;
         } else {
           throw new Error(
-            "async pattern requires carrierFreq or carrierFreqRatio"
+            "async pattern requires carrierFreq (number or object) or carrierFreqRatio"
           );
         }
       }
@@ -223,9 +236,25 @@ class PwmProcessor extends AudioWorkletProcessor {
       const pattern = this._getModulationPattern(currentSignalFreq);
       let carrierWave;
       if (pattern.type === "async") {
-        const carrierFreq = pattern.carrierFreqRatio
-          ? currentSignalFreq * pattern.carrierFreqRatio
-          : pattern.carrierFreq;
+        let carrierFreq;
+        if (typeof pattern.carrierFreq === "object") {
+          const signalFreqRange = pattern.to - pattern.from;
+          const carrierFreqRange =
+            pattern.carrierFreq.to - pattern.carrierFreq.from;
+          const signalFreqOffset = currentSignalFreq - pattern.from;
+
+          if (signalFreqRange <= 0) {
+            carrierFreq = pattern.carrierFreq.from;
+          } else {
+            const ratio = signalFreqOffset / signalFreqRange;
+            carrierFreq = pattern.carrierFreq.from + carrierFreqRange * ratio;
+          }
+        } else if (pattern.carrierFreqRatio) {
+          carrierFreq = currentSignalFreq * pattern.carrierFreqRatio;
+        } else {
+          carrierFreq = pattern.carrierFreq;
+        }
+
         const carrierIncrement = (2 * Math.PI * carrierFreq) / sampleRate;
         const lastAsyncCarrierPhase =
           this.asyncCarrierPhase + carrierIncrement * lastSampleIndex;

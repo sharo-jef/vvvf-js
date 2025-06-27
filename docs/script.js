@@ -37,17 +37,37 @@ function initKonvaUI() {
     speedometer: speedConfig,
   } = globalConfig.ui;
 
-  konvaObjects.stage = new Konva.Stage({
-    container: dom.konvaContainer,
-    width: stageConfig.width,
-    height: stageConfig.height,
-  });
-  konvaObjects.layer = new Konva.Layer();
-  konvaObjects.stage.add(konvaObjects.layer);
+  // ラベルを動的に生成
+  const { POWER_LEVELS, BRAKE_LEVELS } = currentSpec.physical;
+  const brakeLabels = Array.from(
+    { length: BRAKE_LEVELS },
+    (_, i) => `B${BRAKE_LEVELS - i}`
+  );
+  const powerLabels = Array.from(
+    { length: POWER_LEVELS },
+    (_, i) => `P${i + 1}`
+  );
+  const labels = ["EB", ...brakeLabels, "N", ...powerLabels];
+
+  // ステージとレイヤーの初期化 (一度だけ)
+  if (!konvaObjects.stage) {
+    konvaObjects.stage = new Konva.Stage({
+      container: dom.konvaContainer,
+      width: stageConfig.width,
+      height: 520, // UI表示領域を縦に拡大
+    });
+    konvaObjects.layer = new Konva.Layer();
+    konvaObjects.stage.add(konvaObjects.layer);
+  } else {
+    konvaObjects.stage.height(520); // 既存ステージも高さを拡大
+  }
+
+  // 既存のUI要素をクリア
+  konvaObjects.layer.destroyChildren();
 
   konvaObjects.notchRects = [];
   konvaObjects.notchLabels = [];
-  notchConfig.labels.forEach((text, i) => {
+  labels.forEach((text, i) => {
     const y = notchConfig.y_start + i * notchConfig.y_step;
     const isSpecial = text === "EB" || text === "N";
     const width = isSpecial
@@ -99,6 +119,8 @@ function initKonvaUI() {
     verticalAlign: "middle",
   });
   konvaObjects.layer.add(konvaObjects.kmhLabel);
+
+  konvaObjects.layer.draw();
 }
 function render() {
   const { notch: notchConfig } = globalConfig.ui;
@@ -202,7 +224,8 @@ function updateAudio() {
 
   const isAudible = state.currentSpeed > 0 && state.handlePosition !== 0;
   const freq = isAudible
-    ? (state.currentSpeed / currentSpec.physical.MAX_SPEED) * currentSpec.physical.MAX_FREQ
+    ? (state.currentSpeed / currentSpec.physical.MAX_SPEED) *
+      currentSpec.physical.MAX_FREQ
     : 0;
 
   pwmNode.parameters
@@ -270,9 +293,10 @@ function updateSpeed(dt) {
     if (handle === -(physical.BRAKE_LEVELS + 1))
       state.currentSpeed -= physical.DECEL_RATE_EB * dt;
     else {
-      const decel = (physical.DECEL_RATE_MAX / physical.BRAKE_LEVELS) * Math.abs(handle);
+      const decel =
+        (physical.DECEL_RATE_MAX / physical.BRAKE_LEVELS) * Math.abs(handle);
       state.currentSpeed -= decel * dt;
-    }      
+    }
   }
 }
 
@@ -308,7 +332,7 @@ function setupEventListeners() {
 }
 
 function setupTrainSelector() {
-  Object.keys(trainSpecs).forEach(name => {
+  Object.keys(trainSpecs).forEach((name) => {
     const option = document.createElement("option");
     option.value = name;
     option.textContent = name;
@@ -364,10 +388,13 @@ function handleKeyEvent(e) {
 
 function resetSimulation() {
   currentSpec = trainSpecs[state.selectedTrain];
-  Object.assign(state, globalConfig.initialState, { 
+  Object.assign(state, globalConfig.initialState, {
     isSimulating: true,
-    selectedTrain: state.selectedTrain 
+    selectedTrain: state.selectedTrain,
   });
+
+  // UIを再初期化して新しい段数を反映
+  initKonvaUI();
 
   dom.volume.value = state.volume * 100;
   dom.lpf.value = state.lpfCutoff;
