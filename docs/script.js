@@ -211,6 +211,14 @@ function render(state) {
       if (changed) {
         render(state);
         updateAudio();
+        // AudioContextがsuspendedならresume（ユーザー操作時のみ有効）
+        if (audioCtx && audioCtx.state === "suspended") {
+          audioCtx.resume();
+        }
+        // シミュレーションループが止まっていたら再開
+        if (!simulationLoopStarted && state.isSimulating) {
+          startSimulationLoop();
+        }
       }
     });
   }
