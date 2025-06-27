@@ -196,10 +196,11 @@ function handlePwmMessage({ data }) {
       modulationPatterns: currentSpec.modulationPatterns.accel,
     });
   } else if (data.type === "waveform" && dom.modulationInfo) {
-    const { pattern } = data.data;
+    const { pattern, carrierFreq } = data.data;
     let text = "-";
     if (pattern) {
-      if (pattern.type === "async") text = `非同期 ${pattern.carrierFreq}Hz`;
+      if (pattern.type === "async")
+        text = `非同期 ${carrierFreq.toFixed(1)}Hz`;
       else if (pattern.type !== "mute")
         text = `同期 ${
           pattern.pulse === "wide_3" ? "広域3" : pattern.pulse

@@ -293,16 +293,38 @@ class PwmProcessor extends AudioWorkletProcessor {
       const pwmW = signalW > carrierWave ? 1 : -1;
       const currentI1 = (pwmU - pwmV) / 2; // Normalize to -1.0 to 1.0
 
+      const data = {
+        signalU,
+        signalV,
+        signalW,
+        lineVoltage: currentI1,
+        carrier: carrierWave,
+        pattern: pattern,
+      };
+      if (pattern.type === "async") {
+        let carrierFreq;
+        if (typeof pattern.carrierFreq === "object") {
+          const signalFreqRange = pattern.to - pattern.from;
+          const signalFreqOffset = currentSignalFreq - pattern.from;
+          const ratio =
+            signalFreqRange <= 0 ? 0 : signalFreqOffset / signalFreqRange;
+          const c_from = pattern.carrierFreq.from;
+          const c_to = pattern.carrierFreq.to;
+          if (this.handlePosition < 0) {
+            carrierFreq = c_from * ratio + c_to * (1 - ratio);
+          } else {
+            carrierFreq = c_from * (1 - ratio) + c_to * ratio;
+          }
+        } else if (pattern.carrierFreqRatio) {
+          carrierFreq = currentSignalFreq * pattern.carrierFreqRatio;
+        } else {
+          carrierFreq = pattern.carrierFreq;
+        }
+        data.carrierFreq = carrierFreq;
+      }
       this.port.postMessage({
         type: "waveform",
-        data: {
-          signalU,
-          signalV,
-          signalW,
-          lineVoltage: currentI1,
-          carrier: carrierWave,
-          pattern: pattern,
-        },
+        data: data,
       });
       this.lastWaveformUpdateTime = globalThis.currentTime;
     }
