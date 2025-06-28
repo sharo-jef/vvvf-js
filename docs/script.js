@@ -47,7 +47,7 @@ function initKonvaUI() {
     { length: POWER_LEVELS },
     (_, i) => `P${i + 1}`
   );
-  const labels = ["非常", ...brakeLabels, "ユルメ", ...powerLabels];
+  const labels = ["非 常", ...brakeLabels, "ユルメ", ...powerLabels];
 
   // ステージとレイヤーの初期化 (一度だけ)
   if (!konvaObjects.stage) {
@@ -67,9 +67,62 @@ function initKonvaUI() {
 
   konvaObjects.notchRects = [];
   konvaObjects.notchLabels = [];
+
+  // --- マスコンライト背景（黒）を描画 ---
+  // 非常～Pノッチまでの範囲を計算
+  const masconBgStartIndex = 0; // "非常"から
+  const masconBgEndIndex =
+    currentSpec.physical.BRAKE_LEVELS + 1 + currentSpec.physical.POWER_LEVELS; // ユルメ+Pノッチまで
+  let minX = Infinity,
+    minY = Infinity,
+    maxX = -Infinity,
+    maxY = -Infinity;
+  for (let i = masconBgStartIndex; i <= masconBgEndIndex; i++) {
+    const text = labels[i];
+    const isSpecial = text === "非 常" || text === "ユルメ";
+    const width = isSpecial
+      ? notchConfig.special_width
+      : notchConfig.base_width;
+    const x = isSpecial ? notchConfig.special_x : notchConfig.base_x;
+    const y = notchConfig.y_start + i * notchConfig.y_step;
+    minX = Math.min(minX, x);
+    minY = Math.min(minY, y);
+    maxX = Math.max(maxX, x + width);
+    maxY = Math.max(maxY, y + notchConfig.base_height);
+  }
+  // 余白を調整: 上下40px, 左右30px（横幅を10pxずつ伸ばす）
+  const marginTop = 40;
+  const marginBottom = 40;
+  const marginLeft = 30;
+  const marginRight = 30;
+  minX -= marginLeft;
+  maxX += marginRight;
+  minY -= marginTop;
+  maxY += marginBottom;
+  const masconBgRect = new Konva.Rect({
+    x: minX,
+    y: minY,
+    width: maxX - minX,
+    height: maxY - minY,
+    fill: "#111",
+    cornerRadius: 5,
+    listening: false,
+  });
+  // 必ず最背面に配置
+  // まず背景だけのレイヤーを新規作成し、ステージの一番下に追加
+  if (!konvaObjects.bgLayer) {
+    konvaObjects.bgLayer = new Konva.Layer();
+    konvaObjects.stage.add(konvaObjects.bgLayer);
+    konvaObjects.bgLayer.moveToBottom();
+  } else {
+    konvaObjects.bgLayer.destroyChildren();
+  }
+  konvaObjects.bgLayer.add(masconBgRect);
+
+  // --- ノッチ本体・ラベル描画 ---
   labels.forEach((text, i) => {
     const y = notchConfig.y_start + i * notchConfig.y_step;
-    const isSpecial = text === "非常" || text === "ユルメ";
+    const isSpecial = text === "非 常" || text === "ユルメ";
     const width = isSpecial
       ? notchConfig.special_width
       : notchConfig.base_width;
