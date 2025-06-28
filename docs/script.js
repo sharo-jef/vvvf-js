@@ -189,18 +189,33 @@ function initKonvaUI() {
     maxX += marginRight;
     minY -= marginTop;
     maxY += marginBottom;
-    const pRectOutline = new Konva.Rect({
-      x: minX,
-      y: minY,
-      width: maxX - minX,
-      height: maxY - minY,
-      stroke: "#fff",
-      strokeWidth: 2,
-      cornerRadius: 3,
-      listening: false,
-    });
-    konvaObjects.layer.add(pRectOutline);
-    pRectOutline.moveToBottom();
+  const pRectOutline = new Konva.Rect({
+    x: minX,
+    y: minY,
+    width: maxX - minX,
+    height: maxY - minY,
+    stroke: "#fff",
+    strokeWidth: 2,
+    cornerRadius: 3,
+    listening: true,
+  });
+  konvaObjects.layer.add(pRectOutline);
+  pRectOutline.moveToTop();
+  // タップで力行進段
+  pRectOutline.on("pointerdown", async function (evt) {
+    evt.evt.preventDefault && evt.evt.preventDefault();
+    if (!audioCtx) await setupAudio();
+    if (audioCtx && audioCtx.state === "suspended") await audioCtx.resume();
+    if (!state.isSimulating) {
+      state.isSimulating = true;
+      if (!simulationLoopStarted) startSimulationLoop();
+    }
+    if (state.handlePosition < currentSpec.physical.POWER_LEVELS) {
+      state.handlePosition++;
+      render();
+      updateAudio();
+    }
+  });
   }
 
   // --- ユルメを白枠で囲む ---
@@ -221,18 +236,35 @@ function initKonvaUI() {
     const maxX = absX + w + marginRight;
     const minY = absY - marginTop;
     const maxY = absY + h + marginBottom;
-    const yuruRectOutline = new Konva.Rect({
-      x: minX,
-      y: minY,
-      width: maxX - minX,
-      height: maxY - minY,
-      stroke: "#fff",
-      strokeWidth: 2,
-      cornerRadius: 3,
-      listening: false,
-    });
-    konvaObjects.layer.add(yuruRectOutline);
-    yuruRectOutline.moveToBottom();
+  const yuruRectOutline = new Konva.Rect({
+    x: minX,
+    y: minY,
+    width: maxX - minX,
+    height: maxY - minY,
+    stroke: "#fff",
+    strokeWidth: 2,
+    cornerRadius: 3,
+    listening: true,
+  });
+  konvaObjects.layer.add(yuruRectOutline);
+  yuruRectOutline.moveToTop();
+  // タップでユルメ方向に移動
+  yuruRectOutline.on("pointerdown", async function (evt) {
+    evt.evt.preventDefault && evt.evt.preventDefault();
+    if (!audioCtx) await setupAudio();
+    if (audioCtx && audioCtx.state === "suspended") await audioCtx.resume();
+    if (!state.isSimulating) {
+      state.isSimulating = true;
+      if (!simulationLoopStarted) startSimulationLoop();
+    }
+    if (state.handlePosition > 0) {
+      state.handlePosition--;
+    } else if (state.handlePosition < 0) {
+      state.handlePosition++;
+    }
+    render();
+    updateAudio();
+  });
   }
 
   // --- 非常を白枠で囲む ---
@@ -253,18 +285,34 @@ function initKonvaUI() {
     const maxX = absX + w + marginRight;
     const minY = absY - marginTop;
     const maxY = absY + h + marginBottom;
-    const hijouRectOutline = new Konva.Rect({
-      x: minX,
-      y: minY,
-      width: maxX - minX,
-      height: maxY - minY,
-      stroke: "#fff",
-      strokeWidth: 2,
-      cornerRadius: 3,
-      listening: false,
-    });
-    konvaObjects.layer.add(hijouRectOutline);
-    hijouRectOutline.moveToBottom();
+  const hijouRectOutline = new Konva.Rect({
+    x: minX,
+    y: minY,
+    width: maxX - minX,
+    height: maxY - minY,
+    stroke: "#fff",
+    strokeWidth: 2,
+    cornerRadius: 3,
+    listening: true,
+  });
+  konvaObjects.layer.add(hijouRectOutline);
+  hijouRectOutline.moveToTop();
+  // タップで非常位置へ
+  hijouRectOutline.on("pointerdown", async function (evt) {
+    evt.evt.preventDefault && evt.evt.preventDefault();
+    if (!audioCtx) await setupAudio();
+    if (audioCtx && audioCtx.state === "suspended") await audioCtx.resume();
+    if (!state.isSimulating) {
+      state.isSimulating = true;
+      if (!simulationLoopStarted) startSimulationLoop();
+    }
+    const target = -(currentSpec.physical.BRAKE_LEVELS + 1);
+    if (state.handlePosition !== target) {
+      state.handlePosition = target;
+      render();
+      updateAudio();
+    }
+  });
   }
 
   // --- B全体を白枠で囲む ---
@@ -297,18 +345,33 @@ function initKonvaUI() {
     minY -= marginTop;
     maxY += marginBottom;
     // 白枠を描画
-    const bRectOutline = new Konva.Rect({
-      x: minX,
-      y: minY,
-      width: maxX - minX,
-      height: maxY - minY,
-      stroke: "#fff",
-      strokeWidth: 2,
-      cornerRadius: 3,
-      listening: false,
-    });
-    konvaObjects.layer.add(bRectOutline);
-    bRectOutline.moveToBottom();
+  const bRectOutline = new Konva.Rect({
+    x: minX,
+    y: minY,
+    width: maxX - minX,
+    height: maxY - minY,
+    stroke: "#fff",
+    strokeWidth: 2,
+    cornerRadius: 3,
+    listening: true,
+  });
+  konvaObjects.layer.add(bRectOutline);
+  bRectOutline.moveToTop();
+  // タップで制動進段
+  bRectOutline.on("pointerdown", async function (evt) {
+    evt.evt.preventDefault && evt.evt.preventDefault();
+    if (!audioCtx) await setupAudio();
+    if (audioCtx && audioCtx.state === "suspended") await audioCtx.resume();
+    if (!state.isSimulating) {
+      state.isSimulating = true;
+      if (!simulationLoopStarted) startSimulationLoop();
+    }
+    if (state.handlePosition > -currentSpec.physical.BRAKE_LEVELS) {
+      state.handlePosition--;
+      render();
+      updateAudio();
+    }
+  });
   }
 
   konvaObjects.speedValue = new Konva.Text({
