@@ -13,7 +13,6 @@ class PwmProcessor extends AudioWorkletProcessor {
 
   constructor() {
     super();
-    // ...
     this.signalPhase = 0;
     this.asyncCarrierPhase = 0; // For async mode
     this.lastWaveformUpdateTime = 0;
