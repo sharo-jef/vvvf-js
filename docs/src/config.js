@@ -2,7 +2,7 @@
 // 設定 (Config)
 // =================================================================================
 
-const trainSpecs = {
+export const trainSpecs = {
   西武6000系: {
     // 物理パラメータ
     physical: {
@@ -39,7 +39,6 @@ const trainSpecs = {
       ],
     },
   },
-  // 他の車種データをここに追加できます
   E231系500番台: {
     physical: {
       POWER_LEVELS: 5,
@@ -93,9 +92,57 @@ const trainSpecs = {
       ],
     },
   },
+  "209系500番台": {
+    physical: {
+      POWER_LEVELS: 5,
+      BRAKE_LEVELS: 8,
+      MAX_SPEED: 120,
+      MAX_FREQ: 120,
+      DECEL_RATE_COAST: 0.3,
+      DECEL_RATE_MAX: 3.6,
+      DECEL_RATE_EB: 4.7,
+      ACCEL_RATE_MAX: 2.5,
+      lpfCutoff: 10000,
+    },
+    modulationPatterns: {
+      accel: [
+        { from: 0, to: 9, type: "sync", pulse: 57 },
+        { from: 9, to: 19, type: "sync", pulse: 33 },
+        { from: 19, to: 30, type: "sync", pulse: 21 },
+        { from: 30, to: 45, type: "sync", pulse: 9 },
+        { from: 45, to: 53, type: "sync", pulse: 3 },
+        { from: 53, to: "max", type: "sync", pulse: 1 },
+      ],
+      decel: [
+        { from: 59, to: "max", type: "sync", pulse: 1 },
+        { from: 49, to: 59, type: "sync", pulse: 3 },
+        { from: 40, to: 49, type: "sync", pulse: 9 },
+        { from: 18, to: 40, type: "sync", pulse: 21 },
+        { from: 7, to: 18, type: "sync", pulse: 33 },
+        { from: 0, to: 7, type: "mute" }, // 回生失効
+      ],
+    },
+  },
+  E501系: {
+    physical: {
+      POWER_LEVELS: 5,
+      BRAKE_LEVELS: 8,
+      MAX_SPEED: 120,
+      MAX_FREQ: 120,
+      DECEL_RATE_COAST: 0.3,
+      DECEL_RATE_MAX: 4.2,
+      DECEL_RATE_EB: 4.5,
+      ACCEL_RATE_MAX: 3.0,
+      lpfCutoff: 10000,
+    },
+    modulationPatterns: {
+      accel: [],
+      decel: [],
+    },
+  },
 };
 
-const globalConfig = {
+export const globalConfig = {
   // 初期状態
   initialState: {
     handlePosition: 0, // -8 (EB) to 4 (P4)
