@@ -663,6 +663,7 @@ function resetSimulation() {
   Object.assign(state, globalConfig.initialState, {
     isSimulating: true,
     selectedTrain: state.selectedTrain,
+    lpfCutoff: currentSpec.physical.lpfCutoff,
   });
 
   // UIを再初期化して新しい段数を反映
@@ -682,7 +683,10 @@ async function main() {
   setupTrainSelector();
   setupEventListeners();
 
-  Object.assign(state, globalConfig.initialState, { isSimulating: true });
+  Object.assign(state, globalConfig.initialState, {
+    isSimulating: true,
+    lpfCutoff: currentSpec.physical.lpfCutoff,
+  });
 
   dom.volume.value = state.volume * 100;
   dom.lpf.value = state.lpfCutoff;

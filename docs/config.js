@@ -14,6 +14,7 @@ const trainSpecs = {
       DECEL_RATE_MAX: 3.5, // km/h/s (B7)
       DECEL_RATE_EB: 4.5, // km/h/s (EB)
       ACCEL_RATE_MAX: 2.8, // km/h/s (P4時)
+      lpfCutoff: 1500,
     },
     // 変調パターン
     modulationPatterns: {
@@ -49,6 +50,7 @@ const trainSpecs = {
       DECEL_RATE_MAX: 4.2,
       DECEL_RATE_EB: 4.5,
       ACCEL_RATE_MAX: 3.0,
+      lpfCutoff: 10000,
     },
     modulationPatterns: {
       accel: [
@@ -100,7 +102,6 @@ const globalConfig = {
     currentSpeed: 0,
     isSimulating: false,
     volume: 1.0,
-    lpfCutoff: 1500,
     reverbEnabled: true,
     selectedTrain: Object.keys(trainSpecs)[0], // 初期選択の車種
   },
