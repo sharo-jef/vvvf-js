@@ -108,6 +108,156 @@ function initKonvaUI() {
     konvaObjects.notchLabels.push(label);
   });
 
+  // --- P全体を白枠で囲む ---
+  // Pノッチの範囲を計算
+  const pStartIndex = currentSpec.physical.BRAKE_LEVELS + 2;
+  const pEndIndex = pStartIndex + currentSpec.physical.POWER_LEVELS - 1;
+  const pRects = konvaObjects.notchRects.slice(pStartIndex, pEndIndex + 1);
+  if (pRects.length > 0) {
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity;
+    pRects.forEach((rect) => {
+      const absX = rect.x();
+      const absY = rect.y();
+      const w = rect.width();
+      const h = rect.height();
+      minX = Math.min(minX, absX);
+      minY = Math.min(minY, absY);
+      maxX = Math.max(maxX, absX + w);
+      maxY = Math.max(maxY, absY + h);
+    });
+    const marginTop = 2;
+    const marginBottom = 2;
+    const marginLeft = 20;
+    const marginRight = 20;
+    minX -= marginLeft;
+    maxX += marginRight;
+    minY -= marginTop;
+    maxY += marginBottom;
+    const pRectOutline = new Konva.Rect({
+      x: minX,
+      y: minY,
+      width: maxX - minX,
+      height: maxY - minY,
+      stroke: "#fff",
+      strokeWidth: 2,
+      cornerRadius: 3,
+      listening: false,
+    });
+    konvaObjects.layer.add(pRectOutline);
+    pRectOutline.moveToBottom();
+  }
+
+  // --- ユルメを白枠で囲む ---
+  // ユルメのインデックスを取得
+  const yuruIndex = currentSpec.physical.BRAKE_LEVELS + 1;
+  const yuruRect = konvaObjects.notchRects[yuruIndex];
+  if (yuruRect) {
+    const absX = yuruRect.x();
+    const absY = yuruRect.y();
+    const w = yuruRect.width();
+    const h = yuruRect.height();
+    // 余白を調整: 上下1px, 左右1px
+    const marginTop = 1;
+    const marginBottom = 1;
+    const marginLeft = 1;
+    const marginRight = 1;
+    const minX = absX - marginLeft;
+    const maxX = absX + w + marginRight;
+    const minY = absY - marginTop;
+    const maxY = absY + h + marginBottom;
+    const yuruRectOutline = new Konva.Rect({
+      x: minX,
+      y: minY,
+      width: maxX - minX,
+      height: maxY - minY,
+      stroke: "#fff",
+      strokeWidth: 2,
+      cornerRadius: 3,
+      listening: false,
+    });
+    konvaObjects.layer.add(yuruRectOutline);
+    yuruRectOutline.moveToBottom();
+  }
+
+  // --- 非常を白枠で囲む ---
+  // 非常のインデックスは0
+  const hijouIndex = 0;
+  const hijouRect = konvaObjects.notchRects[hijouIndex];
+  if (hijouRect) {
+    const absX = hijouRect.x();
+    const absY = hijouRect.y();
+    const w = hijouRect.width();
+    const h = hijouRect.height();
+    // 余白を調整: 上下2px, 左右2px
+    const marginTop = 2;
+    const marginBottom = 2;
+    const marginLeft = 2;
+    const marginRight = 2;
+    const minX = absX - marginLeft;
+    const maxX = absX + w + marginRight;
+    const minY = absY - marginTop;
+    const maxY = absY + h + marginBottom;
+    const hijouRectOutline = new Konva.Rect({
+      x: minX,
+      y: minY,
+      width: maxX - minX,
+      height: maxY - minY,
+      stroke: "#fff",
+      strokeWidth: 2,
+      cornerRadius: 3,
+      listening: false,
+    });
+    konvaObjects.layer.add(hijouRectOutline);
+    hijouRectOutline.moveToBottom();
+  }
+
+  // --- B全体を白枠で囲む ---
+  // Bノッチの範囲を計算
+  const bStartIndex = 1; // "非常"の次から
+  const bEndIndex = currentSpec.physical.BRAKE_LEVELS; // ユルメの前まで
+  const bRects = konvaObjects.notchRects.slice(bStartIndex, bEndIndex + 1);
+  if (bRects.length > 0) {
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity;
+    bRects.forEach((rect) => {
+      const absX = rect.x();
+      const absY = rect.y();
+      const w = rect.width();
+      const h = rect.height();
+      minX = Math.min(minX, absX);
+      minY = Math.min(minY, absY);
+      maxX = Math.max(maxX, absX + w);
+      maxY = Math.max(maxY, absY + h);
+    });
+    // 余白を調整: 上下2px増やし、左右3px増やす
+    const marginTop = 2;
+    const marginBottom = 2;
+    const marginLeft = 20;
+    const marginRight = 20;
+    minX -= marginLeft;
+    maxX += marginRight;
+    minY -= marginTop;
+    maxY += marginBottom;
+    // 白枠を描画
+    const bRectOutline = new Konva.Rect({
+      x: minX,
+      y: minY,
+      width: maxX - minX,
+      height: maxY - minY,
+      stroke: "#fff",
+      strokeWidth: 2,
+      cornerRadius: 3,
+      listening: false,
+    });
+    konvaObjects.layer.add(bRectOutline);
+    bRectOutline.moveToBottom();
+  }
+
   konvaObjects.speedValue = new Konva.Text({
     ...speedConfig.value,
     text: "0",
@@ -134,7 +284,7 @@ function render() {
   const EB_INDEX = 0;
 
   konvaObjects.notchRects.forEach((rect, i) => {
-    let fill = '#b0ab99'; // デフォルトは明るめグレー縁
+    let fill = "#b0ab99"; // デフォルトは明るめグレー縁
     const handle = state.handlePosition;
 
     if (handle === 0 && i === NEUTRAL_INDEX) {
